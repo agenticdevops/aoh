@@ -1,0 +1,15 @@
+apiVersion: openagentix.io/v1alpha1
+kind: Team
+metadata:
+  name: platform-ops
+  displayName: Acme Platform Ops Team
+spec:
+  org: acme
+  businessUnit: engineering
+  project: platform
+  purpose: Operate Acme platform services, deployment automation, and ML platform reliability.
+  roles:
+    - sre-platform
+    - devops-automation
+    - mlops-training
+  defaultModelProfile: worker-codex

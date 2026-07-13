@@ -1,0 +1,7 @@
+apiVersion: openagentix.io/v1alpha1
+kind: ModelProfile
+metadata:
+  name: local-worker
+spec:
+  intent: Execute known diagnostic workflows with a local or low-cost worker model.
+  fallback: frontier-unblocker

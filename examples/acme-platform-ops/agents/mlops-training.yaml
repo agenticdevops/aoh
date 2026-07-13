@@ -1,0 +1,22 @@
+apiVersion: openagentix.io/v1alpha1
+kind: AgentRole
+metadata:
+  name: mlops-training
+  displayName: MLOps Engineer - Acme Training Platform
+spec:
+  org: acme
+  project: ml-platform
+  purpose: Diagnose model training job reliability, performance, and cost issues.
+  skills:
+    - ml-training-job-triage
+    - service-health-report
+  workflows:
+    - mlops-training-triage
+  runtimeRequirements:
+    - shell-readonly
+    - ml-metrics-readonly
+  modelProfile: worker-codex
+  responsibilities:
+    - inspect job failures and utilization signals
+    - separate data/code issues from infrastructure issues
+    - recommend safe retry and checkpoint strategy

@@ -1,0 +1,8 @@
+apiVersion: openagentix.io/v1alpha1
+kind: RuntimeRequirement
+metadata:
+  name: iac-plan-readonly
+spec:
+  capabilities:
+    - terraform.plan.read
+    - git.diff.read

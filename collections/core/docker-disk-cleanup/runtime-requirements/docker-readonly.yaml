@@ -1,0 +1,11 @@
+apiVersion: openagentix.io/v1alpha1
+kind: RuntimeRequirement
+metadata:
+  name: docker-readonly
+spec:
+  capabilities:
+    - docker.read
+    - shell.read
+  notes:
+    - Runtime should expose Docker CLI read operations.
+    - Cleanup commands require separate approval/runtime support.

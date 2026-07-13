@@ -1,0 +1,6 @@
+apiVersion: openagentix.io/v1alpha1
+kind: Eval
+metadata:
+  name: platform-sre-basic
+spec:
+  prompt: A platform service is unhealthy and Docker disk usage may be high. Triage safely.

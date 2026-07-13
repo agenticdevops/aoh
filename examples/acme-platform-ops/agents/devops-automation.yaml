@@ -1,0 +1,23 @@
+apiVersion: openagentix.io/v1alpha1
+kind: AgentRole
+metadata:
+  name: devops-automation
+  displayName: DevOps Engineer - Acme Platform
+spec:
+  org: acme
+  project: platform
+  purpose: Build and operate safe deployment and infrastructure automation.
+  skills:
+    - deployment-automation
+    - terraform-plan-review
+    - service-health-report
+  workflows:
+    - devops-release-automation
+  runtimeRequirements:
+    - shell-readonly
+    - iac-plan-readonly
+  modelProfile: worker-codex
+  responsibilities:
+    - prepare deployment plans and preflight checks
+    - review infrastructure plan risk
+    - verify service health after releases

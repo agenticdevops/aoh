@@ -1,0 +1,8 @@
+apiVersion: openagentix.io/v1alpha1
+kind: ModelProfile
+metadata:
+  name: worker-codex
+spec:
+  provider: openai-codex
+  model: gpt-5.4
+  intent: Execute known org/project operations workflows with associated role skills.

@@ -1,0 +1,7 @@
+apiVersion: openagentix.io/v1alpha1
+kind: RuntimeRequirement
+metadata:
+  name: shell-readonly
+spec:
+  capabilities:
+    - shell.read

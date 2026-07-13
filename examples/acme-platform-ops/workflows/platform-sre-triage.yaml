@@ -1,0 +1,15 @@
+apiVersion: openagentix.io/v1alpha1
+kind: Workflow
+metadata:
+  name: platform-sre-triage
+  description: Triage platform reliability issues with read-only diagnostics.
+spec:
+  skills:
+    - service-health-report
+    - docker-disk-cleanup
+  agentRole: sre-platform
+  modelProfile: worker-codex
+  runtimeRequirements:
+    - shell-readonly
+  evals:
+    - platform-sre-basic

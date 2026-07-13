@@ -1,0 +1,6 @@
+apiVersion: openagentix.io/v1alpha1
+kind: ModelProfile
+metadata:
+  name: frontier-unblocker
+spec:
+  intent: Help refine workflows, unblock ambiguous failures, or improve the pack.

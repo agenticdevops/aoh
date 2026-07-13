@@ -1,0 +1,16 @@
+apiVersion: openagentix.io/v1alpha1
+kind: Workflow
+metadata:
+  name: mlops-training-triage
+  description: Triage failed or expensive model training jobs.
+spec:
+  skills:
+    - ml-training-job-triage
+    - service-health-report
+  agentRole: mlops-training
+  modelProfile: worker-codex
+  runtimeRequirements:
+    - shell-readonly
+    - ml-metrics-readonly
+  evals:
+    - mlops-training-basic

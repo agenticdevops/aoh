@@ -1,0 +1,19 @@
+apiVersion: openagentix.io/v1alpha1
+kind: AgentRole
+metadata:
+  name: ops-triage-lead
+spec:
+  org: local
+  project: workstation
+  purpose: Coordinate safe local ops diagnosis and produce concise remediation guidance.
+  skills:
+    - docker-disk-cleanup
+  workflows:
+    - docker-disk-cleanup
+  runtimeRequirements:
+    - docker-readonly
+  modelProfile: local-worker
+  responsibilities:
+    - inspect current state before recommending action
+    - prefer read-only commands first
+    - escalate or ask before destructive cleanup

@@ -1,0 +1,8 @@
+apiVersion: openagentix.io/v1alpha1
+kind: RuntimeRequirement
+metadata:
+  name: ml-metrics-readonly
+spec:
+  capabilities:
+    - ml.metrics.read
+    - logs.read

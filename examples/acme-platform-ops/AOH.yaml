@@ -1,0 +1,13 @@
+apiVersion: openagentix.io/v1alpha1
+kind: Pack
+metadata:
+  name: acme-platform-ops
+  displayName: Acme Platform Ops
+  description: Example org/project AOH pack with SRE, DevOps, and MLOps roles.
+  org: acme
+  project: platform
+  tags:
+    - sre
+    - devops
+    - mlops
+    - example

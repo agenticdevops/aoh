@@ -1,0 +1,6 @@
+apiVersion: openagentix.io/v1alpha1
+kind: Eval
+metadata:
+  name: devops-release-basic
+spec:
+  prompt: Review a release plan and infrastructure diff before deployment.

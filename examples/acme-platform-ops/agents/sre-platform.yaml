@@ -1,0 +1,21 @@
+apiVersion: openagentix.io/v1alpha1
+kind: AgentRole
+metadata:
+  name: sre-platform
+  displayName: SRE - Acme Platform
+spec:
+  org: acme
+  project: platform
+  purpose: Own platform reliability, incident triage, and safe remediation guidance.
+  skills:
+    - service-health-report
+    - docker-disk-cleanup
+  workflows:
+    - platform-sre-triage
+  runtimeRequirements:
+    - shell-readonly
+  modelProfile: worker-codex
+  responsibilities:
+    - diagnose platform health and reliability issues
+    - correlate symptoms across services and local runtime dependencies
+    - recommend the smallest safe next action

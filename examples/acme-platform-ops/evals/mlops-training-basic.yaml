@@ -1,0 +1,6 @@
+apiVersion: openagentix.io/v1alpha1
+kind: Eval
+metadata:
+  name: mlops-training-basic
+spec:
+  prompt: A model training job failed after long GPU runtime. Diagnose likely causes and retry strategy.

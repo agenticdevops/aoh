@@ -1,0 +1,11 @@
+apiVersion: openagentix.io/v1alpha1
+kind: Pack
+metadata:
+  name: docker-disk-cleanup
+  displayName: Docker Disk Cleanup
+  description: Diagnose Docker disk usage and recommend safe cleanup steps.
+  owner: OpenAgentix
+  tags:
+    - docker
+    - local-ops
+    - cleanup
