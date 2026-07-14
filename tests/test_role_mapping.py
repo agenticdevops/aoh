@@ -41,10 +41,10 @@ def create_multi_role_pack(root: Path) -> Path:
             """,
         )
     write(
-        pack / "agents/sre-platform.yaml",
+        pack / "roles/sre-platform.yaml",
         """
         apiVersion: openagentix.io/v1alpha1
-        kind: AgentRole
+        kind: Role
         metadata:
           name: sre-platform
           displayName: SRE - Acme Platform
@@ -64,10 +64,10 @@ def create_multi_role_pack(root: Path) -> Path:
         """,
     )
     write(
-        pack / "agents/mlops-training.yaml",
+        pack / "roles/mlops-training.yaml",
         """
         apiVersion: openagentix.io/v1alpha1
-        kind: AgentRole
+        kind: Role
         metadata:
           name: mlops-training
         spec:

@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from shutil import copytree
 
-from aoh.pack import AgentRole, Pack, load_role, load_team
+from aoh.pack import Pack, Role, load_role, load_team
 
 
 @dataclass(frozen=True)
@@ -40,7 +40,7 @@ def generate_hermes_adapter(pack: Pack, output_dir: Path | str) -> AdapterResult
                 "pack": pack.name,
                 "skills": pack.skills,
                 "commands": [f"commands/ops-{skill}.md" for skill in pack.skills],
-                "agentRoles": pack.agent_roles,
+                "roles": pack.roles,
                 "modelProfiles": pack.model_profiles,
                 "runtimeRequirements": pack.runtime_requirements,
                 "evals": pack.evals,
@@ -87,7 +87,7 @@ def install_hermes_pack(
                 "pack": pack.name,
                 "category": category,
                 "installedSkills": selected_skills,
-                "agentRoles": pack.agent_roles,
+                "roles": pack.roles,
                 "modelProfiles": pack.model_profiles,
                 "runtimeRequirements": pack.runtime_requirements,
                 "evals": pack.evals,
@@ -219,7 +219,7 @@ def install_hermes_team(
 
 
 def _render_command(pack: Pack, skill: str) -> str:
-    agent_roles = ", ".join(pack.agent_roles) or "the default Hermes session"
+    roles = ", ".join(pack.roles) or "the default Hermes session"
     models = ", ".join(pack.model_profiles) or "the active Hermes model profile"
     requirements = ", ".join(pack.runtime_requirements) or "the active Hermes tool configuration"
 
@@ -227,7 +227,7 @@ def _render_command(pack: Pack, skill: str) -> str:
         f"# ops-{skill}\n\n"
         f"Use the `{skill}` skill for this AOH command.\n\n"
         f"- AOH pack: `{pack.name}`\n"
-        f"- Agent role: {agent_roles}\n"
+        f"- Role: {roles}\n"
         f"- Model profile: {models}\n"
         f"- Runtime requirements: {requirements}\n\n"
         "Follow the skill instructions, stay focused, and report any runtime "
@@ -236,14 +236,14 @@ def _render_command(pack: Pack, skill: str) -> str:
 
 
 def _render_pack_reference(pack: Pack) -> str:
-    agent_roles = ", ".join(pack.agent_roles) or "default Hermes session"
+    roles = ", ".join(pack.roles) or "default Hermes session"
     models = ", ".join(pack.model_profiles) or "active Hermes model"
     requirements = ", ".join(pack.runtime_requirements) or "active Hermes tools"
     evals = ", ".join(pack.evals) or "none"
 
     return (
         f"# AOH Pack Metadata: {pack.name}\n\n"
-        f"- Agent roles: {agent_roles}\n"
+        f"- Roles: {roles}\n"
         f"- Model profiles: {models}\n"
         f"- Runtime requirements: {requirements}\n"
         f"- Evals: {evals}\n\n"
@@ -273,7 +273,7 @@ def _render_profile_config(*, provider: str, model: str, cwd: str) -> str:
     )
 
 
-def _render_agent_soul(pack: Pack, *, role: AgentRole | None = None) -> str:
+def _render_agent_soul(pack: Pack, *, role: Role | None = None) -> str:
     if role:
         title = role.display_name
         skills = ", ".join(role.skills)

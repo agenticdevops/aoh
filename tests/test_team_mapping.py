@@ -39,10 +39,10 @@ def create_team_pack(root: Path) -> Path:
             """,
         )
     write(
-        pack / "agents/sre-platform.yaml",
+        pack / "roles/sre-platform.yaml",
         """
         apiVersion: openagentix.io/v1alpha1
-        kind: AgentRole
+        kind: Role
         metadata:
           name: sre-platform
           displayName: SRE - Acme Platform
@@ -58,10 +58,10 @@ def create_team_pack(root: Path) -> Path:
         """,
     )
     write(
-        pack / "agents/devops-automation.yaml",
+        pack / "roles/devops-automation.yaml",
         """
         apiVersion: openagentix.io/v1alpha1
-        kind: AgentRole
+        kind: Role
         metadata:
           name: devops-automation
           displayName: DevOps Engineer - Acme Platform

@@ -40,10 +40,10 @@ def create_pack(name: str, output: Path | str, description: str) -> Path:
         """,
     )
     _write(
-        target / "agents/ops-triage-lead.yaml",
+        target / "roles/ops-triage-lead.yaml",
         """
         apiVersion: openagentix.io/v1alpha1
-        kind: AgentRole
+        kind: Role
         metadata:
           name: ops-triage-lead
         spec:

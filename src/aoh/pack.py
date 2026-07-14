@@ -17,7 +17,7 @@ class Pack:
     name: str
     manifest: dict[str, Any]
     skills: list[str]
-    agent_roles: list[str]
+    roles: list[str]
     teams: list[str]
     model_profiles: list[str]
     runtime_requirements: list[str]
@@ -25,7 +25,7 @@ class Pack:
 
 
 @dataclass(frozen=True)
-class AgentRole:
+class Role:
     name: str
     display_name: str
     org: str | None
@@ -69,12 +69,18 @@ def load_pack(root: Path | str) -> Pack:
             "(see docs/spec.md migration notes)"
         )
 
+    if (pack_root / "agents").exists():
+        raise PackError(
+            "agents/ was renamed to roles/ and kind AgentRole to Role "
+            "(see docs/spec.md migration notes)"
+        )
+
     return Pack(
         root=pack_root,
         name=str(metadata["name"]),
         manifest=manifest,
         skills=_discover_skills(pack_root / "skills"),
-        agent_roles=_discover_yaml_names(pack_root / "agents", "AgentRole"),
+        roles=_discover_yaml_names(pack_root / "roles", "Role"),
         teams=_discover_yaml_names(pack_root / "teams", "Team"),
         model_profiles=_discover_yaml_names(pack_root / "models", "ModelProfile"),
         runtime_requirements=_discover_yaml_names(
@@ -84,18 +90,18 @@ def load_pack(root: Path | str) -> Pack:
     )
 
 
-def load_role(pack: Pack, name: str) -> AgentRole:
-    if name not in pack.agent_roles:
-        raise PackError(f"Pack `{pack.name}` does not define agent role `{name}`")
+def load_role(pack: Pack, name: str) -> Role:
+    if name not in pack.roles:
+        raise PackError(f"Pack `{pack.name}` does not define role `{name}`")
 
-    path = pack.root / "agents" / f"{name}.yaml"
+    path = pack.root / "roles" / f"{name}.yaml"
     doc = _read_yaml(path)
     metadata = doc.get("metadata")
     spec = doc.get("spec")
     if not isinstance(metadata, dict) or not isinstance(spec, dict):
-        raise PackError(f"AgentRole `{name}` requires metadata and spec")
+        raise PackError(f"Role `{name}` requires metadata and spec")
 
-    return AgentRole(
+    return Role(
         name=name,
         display_name=str(metadata.get("displayName") or name),
         org=_optional_str(spec.get("org")),
@@ -138,26 +144,26 @@ def validate_pack(pack: Pack) -> None:
     for skill in pack.skills:
         _validate_skill(pack.root / "skills" / skill / "SKILL.md", skill)
 
-    for role_name in pack.agent_roles:
+    for role_name in pack.roles:
         role = load_role(pack, role_name)
         for skill in role.skills:
             if skill not in pack.skills:
-                raise PackError(f"AgentRole `{role_name}` references missing skill `{skill}`")
+                raise PackError(f"Role `{role_name}` references missing skill `{skill}`")
         for requirement in role.runtime_requirements:
             if requirement not in pack.runtime_requirements:
                 raise PackError(
-                    f"AgentRole `{role_name}` references missing runtime requirement `{requirement}`"
+                    f"Role `{role_name}` references missing runtime requirement `{requirement}`"
                 )
         if role.model_profile and role.model_profile not in pack.model_profiles:
             raise PackError(
-                f"AgentRole `{role_name}` references missing model profile `{role.model_profile}`"
+                f"Role `{role_name}` references missing model profile `{role.model_profile}`"
             )
 
     for team_name in pack.teams:
         team = load_team(pack, team_name)
         for role in team.roles:
-            if role not in pack.agent_roles:
-                raise PackError(f"Team `{team_name}` references missing agent role `{role}`")
+            if role not in pack.roles:
+                raise PackError(f"Team `{team_name}` references missing role `{role}`")
         if team.default_model_profile and team.default_model_profile not in pack.model_profiles:
             raise PackError(
                 f"Team `{team_name}` references missing model profile `{team.default_model_profile}`"

@@ -1,5 +1,5 @@
 apiVersion: openagentix.io/v1alpha1
-kind: AgentRole
+kind: Role
 metadata:
   name: mlops-training
   displayName: MLOps Engineer - Acme Training Platform

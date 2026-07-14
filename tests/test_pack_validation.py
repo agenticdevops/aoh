@@ -42,10 +42,10 @@ def create_docker_cleanup_pack(root: Path) -> Path:
         """,
     )
     write(
-        pack / "agents/ops-triage-lead.yaml",
+        pack / "roles/ops-triage-lead.yaml",
         """
         apiVersion: openagentix.io/v1alpha1
-        kind: AgentRole
+        kind: Role
         metadata:
           name: ops-triage-lead
         spec:
@@ -97,7 +97,7 @@ def test_load_pack_discovers_core_artifacts(tmp_path: Path) -> None:
 
     assert pack.name == "docker-disk-cleanup"
     assert pack.skills == ["docker-disk-cleanup"]
-    assert pack.agent_roles == ["ops-triage-lead"]
+    assert pack.roles == ["ops-triage-lead"]
     assert pack.model_profiles == ["local-worker"]
     assert pack.runtime_requirements == ["docker-readonly"]
     assert pack.evals == ["docker-disk-cleanup-basic"]
@@ -215,6 +215,49 @@ def test_validate_pack_requires_eval_skill(tmp_path: Path) -> None:
         assert "Eval `health-basic` spec.skill is required" in str(exc)
     else:
         raise AssertionError("validate_pack should require eval spec.skill")
+
+
+def test_load_pack_rejects_stale_agents_dir(tmp_path: Path) -> None:
+    pack_dir = create_skills_only_pack(tmp_path)
+    write(
+        pack_dir / "agents/ops-triage-lead.yaml",
+        """
+        apiVersion: openagentix.io/v1alpha1
+        kind: AgentRole
+        metadata:
+          name: ops-triage-lead
+        spec:
+          purpose: Old-style role.
+        """,
+    )
+
+    try:
+        load_pack(pack_dir)
+    except PackError as exc:
+        assert "agents/ was renamed to roles/" in str(exc)
+    else:
+        raise AssertionError("load_pack should reject packs with an agents/ dir")
+
+
+def test_load_pack_discovers_roles_dir_with_kind_role(tmp_path: Path) -> None:
+    pack_dir = create_skills_only_pack(tmp_path)
+    write(
+        pack_dir / "roles/ops-triage-lead.yaml",
+        """
+        apiVersion: openagentix.io/v1alpha1
+        kind: Role
+        metadata:
+          name: ops-triage-lead
+        spec:
+          purpose: Coordinate safe ops diagnosis.
+          skills:
+            - service-health-report
+        """,
+    )
+
+    pack = load_pack(pack_dir)
+
+    assert pack.roles == ["ops-triage-lead"]
 
 
 def test_validate_pack_rejects_eval_referencing_missing_skill(tmp_path: Path) -> None:
