@@ -5,4 +5,4 @@ metadata:
 spec:
   provider: openai-codex
   model: gpt-5.4
-  intent: Execute known org/project operations workflows with associated role skills.
+  intent: Execute known org/project operations with associated role skills.

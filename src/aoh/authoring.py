@@ -58,7 +58,7 @@ def create_pack(name: str, output: Path | str, description: str) -> Path:
         metadata:
           name: local-worker
         spec:
-          intent: Execute known operational workflows with a local or low-cost worker model.
+          intent: Execute known operational operations with a local or low-cost worker model.
         """,
     )
     _write(
@@ -82,7 +82,7 @@ def create_pack(name: str, output: Path | str, description: str) -> Path:
           name: {name}-basic
         spec:
           skill: {name}
-          prompt: Run the {name.replace("-", " ")} workflow and explain the safest next action.
+          prompt: Run the {name.replace("-", " ")} process and explain the safest next action.
         """,
     )
     return target

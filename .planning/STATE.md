@@ -14,7 +14,7 @@
 
 - Remote: https://github.com/agenticdevops/aoh.git (main tracks origin/main)
 - Nested repo inside `experiments/` parent tree (parent gitignores `aoh/`)
-- Test command: `rtk proxy uv run pytest -q` — 11 passing baseline
+- Test command: `rtk proxy uv run pytest -q` — 18 passing (v0.2 phase 2)
 - Validate: `uv run aoh validate <pack>`
 
 ## Session log

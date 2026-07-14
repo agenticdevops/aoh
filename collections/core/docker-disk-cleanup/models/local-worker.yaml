@@ -3,5 +3,5 @@ kind: ModelProfile
 metadata:
   name: local-worker
 spec:
-  intent: Execute known diagnostic workflows with a local or low-cost worker model.
+  intent: Execute known diagnostic operations with a local or low-cost worker model.
   fallback: frontier-unblocker

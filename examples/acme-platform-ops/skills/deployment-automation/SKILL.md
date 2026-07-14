@@ -9,7 +9,7 @@ description: Use when planning, validating, or automating deployment workflows, 
 
 Help a DevOps engineer automate repeatable deployments. Prefer plan/diff/check modes before write operations.
 
-## Workflow
+## Process
 
 1. Identify target service, environment, and release artifact.
 2. Run validation and preflight checks.

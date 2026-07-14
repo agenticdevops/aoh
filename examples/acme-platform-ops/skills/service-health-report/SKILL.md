@@ -9,7 +9,7 @@ description: Use when collecting read-only service health signals, recent failur
 
 Create a concise service health report from read-only signals. Start with current status, recent failures, saturation indicators, and dependency health.
 
-## Workflow
+## Process
 
 1. Identify the service and environment.
 2. Collect read-only health signals from available tools.

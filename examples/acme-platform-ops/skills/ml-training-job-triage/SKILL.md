@@ -9,7 +9,7 @@ description: Use when triaging failed, slow, or expensive ML training jobs, GPU 
 
 Diagnose ML training job health using logs, metrics, checkpoints, and cost/runtime signals.
 
-## Workflow
+## Process
 
 1. Identify job, run id, dataset, model, and environment.
 2. Inspect failures, utilization, queue time, and checkpoint state.

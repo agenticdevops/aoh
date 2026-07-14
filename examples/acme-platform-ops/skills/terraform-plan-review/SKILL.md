@@ -9,7 +9,7 @@ description: Use when reviewing Terraform plans, infrastructure diffs, blast rad
 
 Review infrastructure changes before apply. Focus on blast radius, resource replacement, network/security changes, and rollback options.
 
-## Workflow
+## Process
 
 1. Read the plan or diff.
 2. Identify destructive or replacement changes.

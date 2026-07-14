@@ -9,7 +9,7 @@ description: Use when diagnosing Docker disk usage, dangling images, stopped con
 
 Diagnose Docker disk pressure before recommending cleanup. Prefer read-only inspection first and clearly separate safe recommendations from destructive commands.
 
-## Workflow
+## Process
 
 1. Inspect Docker disk usage.
 2. List stopped containers, dangling images, unused volumes, and builder cache.
