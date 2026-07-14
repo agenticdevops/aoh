@@ -10,7 +10,6 @@ spec:
   skills:
     - ml-training-job-triage
     - service-health-report
-  workflows:
     - mlops-training-triage
   runtimeRequirements:
     - shell-readonly

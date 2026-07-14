@@ -8,8 +8,6 @@ spec:
   purpose: Coordinate safe local ops diagnosis and produce concise remediation guidance.
   skills:
     - docker-disk-cleanup
-  workflows:
-    - docker-disk-cleanup
   runtimeRequirements:
     - docker-readonly
   modelProfile: local-worker

@@ -10,7 +10,6 @@ spec:
   skills:
     - service-health-report
     - docker-disk-cleanup
-  workflows:
     - platform-sre-triage
   runtimeRequirements:
     - shell-readonly
