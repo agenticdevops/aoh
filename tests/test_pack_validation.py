@@ -141,6 +141,52 @@ def test_generate_hermes_adapter_materializes_hermes_skills_and_instructions(tmp
     assert '"runtime": "hermes"' in manifest_file.read_text(encoding="utf-8")
 
 
+def create_skills_only_pack(root: Path) -> Path:
+    pack = root / "minimal-pack"
+    write(
+        pack / "AOH.yaml",
+        """
+        apiVersion: openagentix.io/v1alpha1
+        kind: Pack
+        metadata:
+          name: minimal-pack
+        """,
+    )
+    write(
+        pack / "skills/service-health-report/SKILL.md",
+        """
+        ---
+        name: service-health-report
+        description: Use when summarizing the health of a service from logs and metrics.
+        ---
+
+        # Service Health Report
+        """,
+    )
+    return pack
+
+
+def test_validate_pack_accepts_skills_only_pack(tmp_path: Path) -> None:
+    pack = load_pack(create_skills_only_pack(tmp_path))
+
+    validate_pack(pack)
+
+
+def test_validate_pack_requires_at_least_one_skill(tmp_path: Path) -> None:
+    pack_dir = create_skills_only_pack(tmp_path)
+    skill_file = pack_dir / "skills/service-health-report/SKILL.md"
+    skill_file.unlink()
+
+    pack = load_pack(pack_dir)
+
+    try:
+        validate_pack(pack)
+    except PackError as exc:
+        assert "at least one skill" in str(exc)
+    else:
+        raise AssertionError("validate_pack should require at least one skill")
+
+
 def test_validate_pack_rejects_workflow_references_to_missing_artifacts(tmp_path: Path) -> None:
     pack_dir = create_docker_cleanup_pack(tmp_path)
     workflow = pack_dir / "workflows/docker-disk-cleanup.yaml"

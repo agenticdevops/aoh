@@ -132,8 +132,6 @@ def load_team(pack: Pack, name: str) -> Team:
 def validate_pack(pack: Pack) -> None:
     if not pack.skills:
         raise PackError("Pack must define at least one skill")
-    if not pack.workflows:
-        raise PackError("Pack must define at least one workflow")
 
     for skill in pack.skills:
         _validate_skill(pack.root / "skills" / skill / "SKILL.md", skill)

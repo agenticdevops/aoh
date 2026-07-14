@@ -2,18 +2,21 @@
 
 AOH packs are engine-neutral operational superpowers. A pack describes what an ops capability is, how an agent should use it, and what each runtime adapter needs to materialize.
 
-## Required Layout
+## Layout
+
+Progressive disclosure: only `AOH.yaml` and at least one skill are required.
+Everything else is an opt-in layer for org-scale use.
 
 ```text
 pack-name/
-  AOH.yaml
-  teams/<team-name>.yaml
-  skills/<skill-name>/SKILL.md
-  workflows/<workflow-name>.yaml
-  agents/<role-name>.yaml
-  models/<profile-name>.yaml
-  runtime-requirements/<requirement-name>.yaml
-  evals/<eval-name>.yaml
+  AOH.yaml                                      # required
+  skills/<skill-name>/SKILL.md                  # required (at least one)
+  teams/<team-name>.yaml                        # optional
+  workflows/<workflow-name>.yaml                # optional
+  agents/<role-name>.yaml                       # optional
+  models/<profile-name>.yaml                    # optional
+  runtime-requirements/<requirement-name>.yaml  # optional
+  evals/<eval-name>.yaml                        # optional
 ```
 
 ## Artifact Kinds
@@ -46,6 +49,7 @@ Runtime adapters decide how to map this into their platform. For Hermes, a role-
 `aoh validate` checks that:
 
 - `AOH.yaml` uses `apiVersion: openagentix.io/v1alpha1` and `kind: Pack`.
+- the pack defines at least one skill; all other artifact kinds are optional.
 - every skill has `SKILL.md` frontmatter with matching `name` and a `description`.
 - workflow references point to existing skills, agent roles, model profiles, runtime requirements, and evals.
 - agent role references point to existing skills, workflows, model profiles, and runtime requirements.
