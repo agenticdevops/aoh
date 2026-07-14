@@ -3,4 +3,5 @@ kind: Eval
 metadata:
   name: platform-sre-basic
 spec:
+  skill: platform-sre-triage
   prompt: A platform service is unhealthy and Docker disk usage may be high. Triage safely.

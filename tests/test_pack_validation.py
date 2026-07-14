@@ -83,6 +83,7 @@ def create_docker_cleanup_pack(root: Path) -> Path:
         metadata:
           name: docker-disk-cleanup-basic
         spec:
+          skill: docker-disk-cleanup
           prompt: Diagnose why Docker is using too much disk space.
         """,
     )
@@ -190,3 +191,52 @@ def test_load_pack_rejects_stale_workflows_dir(tmp_path: Path) -> None:
         assert "workflows/ is no longer supported" in str(exc)
     else:
         raise AssertionError("load_pack should reject packs with a workflows/ dir")
+
+
+def test_validate_pack_requires_eval_skill(tmp_path: Path) -> None:
+    pack_dir = create_skills_only_pack(tmp_path)
+    write(
+        pack_dir / "evals/health-basic.yaml",
+        """
+        apiVersion: openagentix.io/v1alpha1
+        kind: Eval
+        metadata:
+          name: health-basic
+        spec:
+          prompt: Summarize service health.
+        """,
+    )
+
+    pack = load_pack(pack_dir)
+
+    try:
+        validate_pack(pack)
+    except PackError as exc:
+        assert "Eval `health-basic` spec.skill is required" in str(exc)
+    else:
+        raise AssertionError("validate_pack should require eval spec.skill")
+
+
+def test_validate_pack_rejects_eval_referencing_missing_skill(tmp_path: Path) -> None:
+    pack_dir = create_skills_only_pack(tmp_path)
+    write(
+        pack_dir / "evals/health-basic.yaml",
+        """
+        apiVersion: openagentix.io/v1alpha1
+        kind: Eval
+        metadata:
+          name: health-basic
+        spec:
+          skill: nonexistent-skill
+          prompt: Summarize service health.
+        """,
+    )
+
+    pack = load_pack(pack_dir)
+
+    try:
+        validate_pack(pack)
+    except PackError as exc:
+        assert "Eval `health-basic` references missing skill `nonexistent-skill`" in str(exc)
+    else:
+        raise AssertionError("validate_pack should reject eval with missing skill ref")

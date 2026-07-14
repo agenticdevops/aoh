@@ -127,6 +127,7 @@ def create_team_pack(root: Path) -> Path:
         metadata:
           name: platform-basic
         spec:
+          skill: service-health-report
           prompt: Validate platform ops behavior.
         """,
     )

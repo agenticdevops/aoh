@@ -81,6 +81,7 @@ def create_pack(name: str, output: Path | str, description: str) -> Path:
         metadata:
           name: {name}-basic
         spec:
+          skill: {name}
           prompt: Run the {name.replace("-", " ")} workflow and explain the safest next action.
         """,
     )

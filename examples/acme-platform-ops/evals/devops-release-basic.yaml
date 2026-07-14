@@ -3,4 +3,5 @@ kind: Eval
 metadata:
   name: devops-release-basic
 spec:
+  skill: devops-release-automation
   prompt: Review a release plan and infrastructure diff before deployment.

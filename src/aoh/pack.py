@@ -163,6 +163,17 @@ def validate_pack(pack: Pack) -> None:
                 f"Team `{team_name}` references missing model profile `{team.default_model_profile}`"
             )
 
+    for eval_path in sorted((pack.root / "evals").glob("*.yaml")):
+        doc = _read_yaml(eval_path)
+        metadata = doc.get("metadata", {})
+        eval_name = metadata.get("name", eval_path.stem) if isinstance(metadata, dict) else eval_path.stem
+        spec = doc.get("spec")
+        if not isinstance(spec, dict) or not spec.get("skill"):
+            raise PackError(f"Eval `{eval_name}` spec.skill is required")
+        skill = str(spec["skill"])
+        if skill not in pack.skills:
+            raise PackError(f"Eval `{eval_name}` references missing skill `{skill}`")
+
 
 def _discover_skills(skills_dir: Path) -> list[str]:
     if not skills_dir.exists():

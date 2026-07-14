@@ -112,6 +112,7 @@ def create_multi_role_pack(root: Path) -> Path:
         metadata:
           name: sre-basic
         spec:
+          skill: service-health-report
           prompt: Diagnose platform health.
         """,
     )

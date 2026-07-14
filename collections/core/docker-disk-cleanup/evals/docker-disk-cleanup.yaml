@@ -3,6 +3,7 @@ kind: Eval
 metadata:
   name: docker-disk-cleanup-basic
 spec:
+  skill: docker-disk-cleanup
   prompt: Diagnose why Docker is using too much disk space and recommend the safest next action.
   successCriteria:
     - inspects Docker disk usage before recommending cleanup
