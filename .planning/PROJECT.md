@@ -54,10 +54,13 @@ Minimum viable pack = AOH.yaml + one skill. Five minutes to value.
 | 2026-07-14 | Secrets out of scope | Declare requirement; runtime/env/vault provides. Never store |
 | 2026-07-14 | Adapter interface before adapter #2 | Prevent Hermes conventions ossifying into core; CLI → `aoh install --runtime <x>` |
 | 2026-07-14 | Planning/context lives in .planning/ markdown (GSD-compatible) | Survives /clear; project memory outside agent context window |
+| 2026-07-14 | v1alpha2: hard cut, no v1alpha1 compat | Alpha = zero compat promise; dual-version validator = permanent tax |
+| 2026-07-14 | `agents/` → `roles/`, kind `AgentRole` → `Role` | Role = real-world WHO; avoids "agent" overload; cheapest before adapter #2 |
+| 2026-07-14 | Eval links to skill via required `spec.skill` | Skill+eval travel together; eval gates cheap-model trust per skill |
+| 2026-07-14 | Command namespace prefix `ops` (user decision) | Easier to type than `aoh`; canonical `ops:<skill>`, separator per adapter; conflicts = other tools' problem |
 
 ## Open Questions
 
-- Rename `agents/` → `roles/`? (role = real-world abstraction, profile = runtime-specific)
 - Team defaults override role model profiles?
 - ModelProfile escalation semantics (`fallback:`) — which adapter enforces first? (Goose has native lead/worker)
 - Minimum viable registry format; pack dependencies/imports (Galaxy-style)?
