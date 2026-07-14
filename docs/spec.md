@@ -1,4 +1,4 @@
-# AOH Pack Spec
+# AOH Pack Spec (v1alpha2)
 
 AOH packs are engine-neutral operational superpowers. A pack describes what an ops capability is, how an agent should use it, and what each runtime adapter needs to materialize.
 
@@ -12,8 +12,7 @@ pack-name/
   AOH.yaml                                      # required
   skills/<skill-name>/SKILL.md                  # required (at least one)
   teams/<team-name>.yaml                        # optional
-  workflows/<workflow-name>.yaml                # optional
-  agents/<role-name>.yaml                       # optional
+  roles/<role-name>.yaml                        # optional
   models/<profile-name>.yaml                    # optional
   runtime-requirements/<requirement-name>.yaml  # optional
   evals/<eval-name>.yaml                        # optional
@@ -21,14 +20,32 @@ pack-name/
 
 ## Artifact Kinds
 
-- `Pack`: top-level metadata and ownership.
+- `Pack`: top-level metadata and ownership. `apiVersion: openagentix.io/v1alpha2`.
 - `Skill`: agentskills-compatible instructions plus optional scripts/references/assets.
-- `Workflow`: composition of skills, agent role, model profile, runtime requirements, and evals.
+  A **process skill** is a plain skill whose body orchestrates other skills by name
+  (order, branching, escalation). No dedicated kind — it is a documented convention.
 - `Team`: org/project/BU container that groups related operational roles.
-- `AgentRole`: an org/project job function with associated skills, workflows, runtime requirements, model profile, and responsibilities.
+- `Role`: an org/project job function with associated skills, runtime requirements,
+  model profile, and responsibilities.
 - `ModelProfile`: intent-level model routing, such as local worker or frontier unblocker.
 - `RuntimeRequirement`: capabilities the runtime should provide or warn about.
-- `Eval`: scenario prompt and success criteria for validating future pack behavior.
+- `Eval`: scenario prompt and success criteria for one skill, referenced by required
+  `spec.skill`. Evals gate cheap-model trust per skill.
+
+## Commands
+
+Adapters generate one invokable command per skill, namespaced under the `ops` prefix.
+The canonical command name is `ops:<skill>`; each adapter maps the separator to its
+runtime's convention:
+
+| Runtime | Surface | Command |
+|---|---|---|
+| Hermes | `commands/ops-<skill>.md` | `ops-<skill>` |
+| Claude Code | `commands/ops/<skill>.md` (subdir → namespace) | `/ops:<skill>` |
+| Codex | `prompts/ops-<skill>.md` | `/ops-<skill>` |
+| OpenCode | `command/ops-<skill>.md` | `/ops-<skill>` |
+
+The prefix lives in the spec; separator mapping lives in adapters.
 
 ## Org/Project Role Model
 
@@ -38,8 +55,7 @@ AOH models real operational teams:
 - **Project**: operational scope, such as `platform` or `ml-platform`.
 - **Team**: a group of roles responsible for a project or business unit, such as `platform-ops`.
 - **Role**: job function within that scope, such as `sre-platform`, `devops-automation`, or `mlops-training`.
-- **Skills**: capabilities associated with that role.
-- **Workflows**: repeatable operational flows the role can execute.
+- **Skills**: capabilities associated with that role, including process skills.
 - **Runtime requirements**: tools/capabilities the runtime should provide.
 
 Runtime adapters decide how to map this into their platform. For Hermes, a role-scoped AOH agent maps to a Hermes profile containing `config.yaml`, `SOUL.md`, profile-local skills, and a launch script. A team maps to multiple Hermes profiles, one per role.
@@ -48,13 +64,26 @@ Runtime adapters decide how to map this into their platform. For Hermes, a role-
 
 `aoh validate` checks that:
 
-- `AOH.yaml` uses `apiVersion: openagentix.io/v1alpha1` and `kind: Pack`.
+- `AOH.yaml` uses `apiVersion: openagentix.io/v1alpha2` and `kind: Pack`.
 - the pack defines at least one skill; all other artifact kinds are optional.
 - every skill has `SKILL.md` frontmatter with matching `name` and a `description`.
-- workflow references point to existing skills, agent roles, model profiles, runtime requirements, and evals.
-- agent role references point to existing skills, workflows, model profiles, and runtime requirements.
-- team references point to existing agent roles and model profiles.
+- role references point to existing skills, model profiles, and runtime requirements.
+- team references point to existing roles and model profiles.
+- every eval declares `spec.skill` and it points to an existing skill.
 - each YAML artifact has the expected `kind` and `metadata.name`.
+- stale v1alpha1 layouts fail loudly: a `workflows/` or `agents/` directory is an error.
+
+## Migration Notes (v1alpha1 → v1alpha2)
+
+- `apiVersion`: `openagentix.io/v1alpha1` → `openagentix.io/v1alpha2` in every yaml.
+- `kind: Workflow` is gone. Delete single-skill wrapper workflows (the skill already
+  covers them). Convert multi-skill workflows into process skills: a `SKILL.md` that
+  lists the constituent skills in order with any branching/escalation logic, added to
+  the owning role's `skills:` list.
+- `agents/` → `roles/`; `kind: AgentRole` → `kind: Role`; the role `workflows:` field
+  is removed.
+- Every `Eval` gains required `spec.skill` naming the skill it tests.
+- No compatibility shim and no migrate command — alpha versions carry no compat promise.
 
 ## Runtime Boundaries
 

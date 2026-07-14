@@ -6,9 +6,9 @@
 ## Position
 
 - Milestone: v0.2 (Simplify + Solidify)
-- Current phase: 2 (Collapse Workflow kind) — not started
-- Next action: brainstorm spec v1alpha2 (Workflow → process skills, decide agents/→roles/
-  rename), then TDD migration of pack.py, hermes.py, example packs
+- Current phase: 2 (Collapse Workflow kind) — ✅ done
+- Next action: phase 3 (Adapter interface) — extract `RuntimeAdapter` protocol from
+  hermes.py, CLI → `aoh install --runtime <x>`
 
 ## Repo facts
 
@@ -18,6 +18,17 @@
 - Validate: `uv run aoh validate <pack>`
 
 ## Session log
+
+### 2026-07-14 — spec v1alpha2 shipped (phase 2, subagent-driven development)
+- Executed via subagent-driven development: 5 tasks, each with a clean review
+- 940fd02 pack migration (multi-skill workflows → process skills, drop 1:1 wrappers)
+- c3a6470 excise `kind: Workflow`; Hermes emits `commands/ops-<skill>.md` per skill
+- 6e1de52 evals require `spec.skill`; 2c80ec6 `agents/`→`roles/`, `AgentRole`→`Role`
+- c7def8c hard cut to `apiVersion: openagentix.io/v1alpha2` (no compat shim)
+- Docs pass (task 6): docs/spec.md full rewrite for v1alpha2 + Migration Notes section
+  (closes pack.py's "see docs/spec.md migration notes" pointer), README + hermes-adapter.md
+  + authoring.md swept for stale workflow/agents/v1alpha1 vocabulary, CHANGELOG updated
+- Final suite: 18 passing
 
 ### 2026-07-14 — audit, design review, repo sync, planning system
 - Independent audit: brief verified accurate; 11/11 tests, packs valid, Hermes profiles live

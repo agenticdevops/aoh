@@ -8,8 +8,8 @@ AOH authoring follows the "Superpowers for Ops" mental model.
 2. Create a narrow pack with `uv run aoh init-pack`.
 3. Write the skill as the reusable operational technique.
 4. Define real org/project roles that own capabilities.
-5. Associate each role with only the skills and workflows it should use.
-6. Write workflows as the composition layer.
+5. Associate each role with only the skills it should use.
+6. Write process skills as the composition layer for multi-skill flows.
 7. Declare model profiles, runtime requirements, and evals.
 8. Validate the pack.
 9. Generate runtime output for Hermes.

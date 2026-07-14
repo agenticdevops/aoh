@@ -7,7 +7,7 @@ The Hermes adapter is the first AOH runtime adapter. It materializes an engine-n
 ```text
 hermes-output/
   skills/<skill-name>/SKILL.md
-  commands/<workflow>.md
+  commands/ops-<skill-name>.md
   aoh-hermes.json
 ```
 
@@ -24,7 +24,7 @@ This writes:
 
 ```text
 ~/.hermes/profiles/finops/skills/aoh/docker-disk-cleanup/SKILL.md
-~/.hermes/profiles/finops/skills/aoh/docker-disk-cleanup/references/aoh-workflow.md
+~/.hermes/profiles/finops/skills/aoh/docker-disk-cleanup/references/aoh-pack.md
 ~/.hermes/profiles/finops/skills/aoh/docker-disk-cleanup/scripts/inspect_docker_disk.sh
 ~/.hermes/profiles/finops/skills/aoh/docker-disk-cleanup.aoh-hermes.json
 ```
@@ -125,10 +125,10 @@ I’m the AOH SRE runtime for Acme Platform in the sre-platform role, and the as
 
 ## Mapping
 
-- AOH `skills/` copy directly into Hermes-compatible skills.
-- AOH `workflows/` become Markdown command instructions.
+- AOH `skills/` copy directly into Hermes-compatible skills, and each skill also gets
+  a generated `commands/ops-<skill>.md` command.
 - AOH `teams/` become groups of role-scoped Hermes profiles.
-- AOH `agents/` become role guidance in `SOUL.md` and role-scoped profile skills.
+- AOH `roles/` become role guidance in `SOUL.md` and role-scoped profile skills.
 - AOH `models/` are referenced as model intent until deeper Hermes profile installation is added.
 - AOH `runtime-requirements/` are surfaced as runtime expectations.
 - AOH `evals/` are listed in the adapter manifest for future test runners.

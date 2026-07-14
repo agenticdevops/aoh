@@ -5,6 +5,20 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed (BREAKING — spec v1alpha2)
+
+- `apiVersion` is now `openagentix.io/v1alpha2`; v1alpha1 packs are rejected with a
+  migration pointer. No compatibility shim.
+- Removed `kind: Workflow`. Multi-skill workflows became process skills
+  (`platform-sre-triage`, `devops-release-automation`, `mlops-training-triage`);
+  single-skill wrappers were deleted. A stale `workflows/` dir is a validation error.
+- Renamed `agents/` → `roles/` and `kind: AgentRole` → `kind: Role`; roles no longer
+  carry a `workflows:` field. A stale `agents/` dir is a validation error.
+- `Eval` now requires `spec.skill` pointing at the skill it tests.
+- Hermes adapter generates one command per skill, namespaced `ops-<skill>.md`
+  (canonical name `ops:<skill>`; separator mapping is per-adapter).
+- Installed skill reference renamed `references/aoh-workflow.md` → `references/aoh-pack.md`.
+
 ### Changed
 - Validator: progressive disclosure — only `AOH.yaml` + at least one skill are
   mandatory; workflows, agents, teams, models, evals, runtime-requirements are opt-in

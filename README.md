@@ -5,7 +5,7 @@
 Think of it as an early **Ansible-for-agentic-ops** pattern:
 
 - Ansible has inventories, roles, and playbooks.
-- AOH has orgs, teams, roles, skills, workflows, runtime requirements, and adapters.
+- AOH has orgs, teams, roles, skills (including process skills), runtime requirements, and adapters.
 - Agent runtimes such as Hermes, Goose, Codex, Claude Code, and OpenCode become execution engines.
 
 AOH starts with Hermes Agent as the first working runtime adapter.
@@ -27,8 +27,7 @@ AOH lets you model a real team once, keep it in Git, and compile it into runtime
 Org / Business Unit / Project
   -> Team
     -> Role
-      -> Skills / Capabilities
-      -> Workflows
+      -> Skills / Capabilities (including process skills)
       -> Runtime Requirements
       -> Model Profile
   -> Runtime Adapter
@@ -41,7 +40,7 @@ Org / Business Unit / Project
 This MVP includes:
 
 - A portable AOH pack format.
-- Team, role, skill, workflow, model profile, runtime requirement, and eval artifacts.
+- Team, role, skill, model profile, runtime requirement, and eval artifacts.
 - A Python/uv CLI for validation and adapter generation.
 - A Hermes adapter that creates launchable Hermes profiles.
 - A realistic `acme-platform-ops` example with SRE, DevOps, and MLOps roles.
@@ -65,15 +64,13 @@ A real-world job function such as:
 - `devops-automation`
 - `mlops-training`
 
-Each role owns a specific set of skills, workflows, runtime requirements, and model intent.
+Each role owns a specific set of skills, runtime requirements, and model intent.
 
 ### Skill
 
 An agent-usable capability, written as `SKILL.md` with optional scripts and references.
-
-### Workflow
-
-The repeatable operational flow that composes skills, role, model profile, runtime requirements, and evals.
+A **process skill** is a plain skill whose body orchestrates other skills by name
+(order, branching, escalation) — AOH's convention for repeatable operational flows.
 
 ### Adapter
 
@@ -98,9 +95,8 @@ AOH launch -> launch.sh
 ├── examples/
 │   └── acme-platform-ops/
 │       ├── teams/
-│       ├── agents/
+│       ├── roles/
 │       ├── skills/
-│       ├── workflows/
 │       ├── models/
 │       ├── runtime-requirements/
 │       └── evals/
@@ -192,9 +188,8 @@ uv run aoh init-pack postgres-health-check \
 Then add:
 
 - team definitions under `teams/`
-- role definitions under `agents/`
-- skills under `skills/`
-- workflows under `workflows/`
+- role definitions under `roles/`
+- skills under `skills/` (including process skills for multi-step flows)
 - runtime requirements under `runtime-requirements/`
 - evals under `evals/`
 
@@ -226,7 +221,7 @@ Current commands:
 - Claude Code adapter: skills plus `CLAUDE.md` role/project instructions.
 - OpenCode adapter.
 - Pack registry and versioning.
-- Eval runner for role/workflow validation.
+- Eval runner for role/skill validation.
 - Richer runtime requirement negotiation.
 - Policy and approval metadata mapped into runtime-native guardrails.
 
@@ -240,8 +235,7 @@ It gives your ops organization a portable source of truth:
 who the agent is
 what team it belongs to
 what role it performs
-what skills it has
-what workflows it can run
+what skills it has (including process skills it can run)
 what tools it needs
 which runtime should execute it
 ```
