@@ -6,8 +6,9 @@
 ## Position
 
 - Milestone: v0.2 (Simplify + Solidify)
-- Current phase: 1 (Progressive disclosure) — in progress
-- Next action: TDD validator optionality in `src/aoh/pack.py:validate_pack`
+- Current phase: 2 (Collapse Workflow kind) — not started
+- Next action: brainstorm spec v1alpha2 (Workflow → process skills, decide agents/→roles/
+  rename), then TDD migration of pack.py, hermes.py, example packs
 
 ## Repo facts
 
@@ -27,6 +28,8 @@
 - Built this planning system + CLAUDE.md + planning-context skill
 - Working style set: superpowers for iteration speed; .planning/ = shared memory,
   not GSD ceremony
+- Phase 1 shipped (TDD): validator no longer requires workflows — skills-only packs
+  valid; 13 tests green; spec.md synced; pushed as c7a2923
 
 ## Handoff notes
 
