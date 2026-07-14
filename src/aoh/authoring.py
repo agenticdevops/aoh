@@ -10,7 +10,7 @@ def create_pack(name: str, output: Path | str, description: str) -> Path:
     _write(
         target / "AOH.yaml",
         f"""
-        apiVersion: openagentix.io/v1alpha1
+        apiVersion: openagentix.io/v1alpha2
         kind: Pack
         metadata:
           name: {name}
@@ -42,7 +42,7 @@ def create_pack(name: str, output: Path | str, description: str) -> Path:
     _write(
         target / "roles/ops-triage-lead.yaml",
         """
-        apiVersion: openagentix.io/v1alpha1
+        apiVersion: openagentix.io/v1alpha2
         kind: Role
         metadata:
           name: ops-triage-lead
@@ -53,7 +53,7 @@ def create_pack(name: str, output: Path | str, description: str) -> Path:
     _write(
         target / "models/local-worker.yaml",
         """
-        apiVersion: openagentix.io/v1alpha1
+        apiVersion: openagentix.io/v1alpha2
         kind: ModelProfile
         metadata:
           name: local-worker
@@ -64,7 +64,7 @@ def create_pack(name: str, output: Path | str, description: str) -> Path:
     _write(
         target / "runtime-requirements/shell-readonly.yaml",
         """
-        apiVersion: openagentix.io/v1alpha1
+        apiVersion: openagentix.io/v1alpha2
         kind: RuntimeRequirement
         metadata:
           name: shell-readonly
@@ -76,7 +76,7 @@ def create_pack(name: str, output: Path | str, description: str) -> Path:
     _write(
         target / f"evals/{name}.yaml",
         f"""
-        apiVersion: openagentix.io/v1alpha1
+        apiVersion: openagentix.io/v1alpha2
         kind: Eval
         metadata:
           name: {name}-basic

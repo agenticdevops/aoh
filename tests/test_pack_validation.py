@@ -20,7 +20,7 @@ def create_docker_cleanup_pack(root: Path) -> Path:
     write(
         pack / "AOH.yaml",
         """
-        apiVersion: openagentix.io/v1alpha1
+        apiVersion: openagentix.io/v1alpha2
         kind: Pack
         metadata:
           name: docker-disk-cleanup
@@ -44,7 +44,7 @@ def create_docker_cleanup_pack(root: Path) -> Path:
     write(
         pack / "roles/ops-triage-lead.yaml",
         """
-        apiVersion: openagentix.io/v1alpha1
+        apiVersion: openagentix.io/v1alpha2
         kind: Role
         metadata:
           name: ops-triage-lead
@@ -55,7 +55,7 @@ def create_docker_cleanup_pack(root: Path) -> Path:
     write(
         pack / "models/local-worker.yaml",
         """
-        apiVersion: openagentix.io/v1alpha1
+        apiVersion: openagentix.io/v1alpha2
         kind: ModelProfile
         metadata:
           name: local-worker
@@ -66,7 +66,7 @@ def create_docker_cleanup_pack(root: Path) -> Path:
     write(
         pack / "runtime-requirements/docker-readonly.yaml",
         """
-        apiVersion: openagentix.io/v1alpha1
+        apiVersion: openagentix.io/v1alpha2
         kind: RuntimeRequirement
         metadata:
           name: docker-readonly
@@ -78,7 +78,7 @@ def create_docker_cleanup_pack(root: Path) -> Path:
     write(
         pack / "evals/docker-disk-cleanup.yaml",
         """
-        apiVersion: openagentix.io/v1alpha1
+        apiVersion: openagentix.io/v1alpha2
         kind: Eval
         metadata:
           name: docker-disk-cleanup-basic
@@ -130,7 +130,7 @@ def create_skills_only_pack(root: Path) -> Path:
     write(
         pack / "AOH.yaml",
         """
-        apiVersion: openagentix.io/v1alpha1
+        apiVersion: openagentix.io/v1alpha2
         kind: Pack
         metadata:
           name: minimal-pack
@@ -176,7 +176,7 @@ def test_load_pack_rejects_stale_workflows_dir(tmp_path: Path) -> None:
     write(
         pack_dir / "workflows/old.yaml",
         """
-        apiVersion: openagentix.io/v1alpha1
+        apiVersion: openagentix.io/v1alpha2
         kind: Workflow
         metadata:
           name: old
@@ -198,7 +198,7 @@ def test_validate_pack_requires_eval_skill(tmp_path: Path) -> None:
     write(
         pack_dir / "evals/health-basic.yaml",
         """
-        apiVersion: openagentix.io/v1alpha1
+        apiVersion: openagentix.io/v1alpha2
         kind: Eval
         metadata:
           name: health-basic
@@ -222,7 +222,7 @@ def test_load_pack_rejects_stale_agents_dir(tmp_path: Path) -> None:
     write(
         pack_dir / "agents/ops-triage-lead.yaml",
         """
-        apiVersion: openagentix.io/v1alpha1
+        apiVersion: openagentix.io/v1alpha2
         kind: AgentRole
         metadata:
           name: ops-triage-lead
@@ -244,7 +244,7 @@ def test_load_pack_discovers_roles_dir_with_kind_role(tmp_path: Path) -> None:
     write(
         pack_dir / "roles/ops-triage-lead.yaml",
         """
-        apiVersion: openagentix.io/v1alpha1
+        apiVersion: openagentix.io/v1alpha2
         kind: Role
         metadata:
           name: ops-triage-lead
@@ -265,7 +265,7 @@ def test_validate_pack_rejects_eval_referencing_missing_skill(tmp_path: Path) ->
     write(
         pack_dir / "evals/health-basic.yaml",
         """
-        apiVersion: openagentix.io/v1alpha1
+        apiVersion: openagentix.io/v1alpha2
         kind: Eval
         metadata:
           name: health-basic
@@ -283,3 +283,36 @@ def test_validate_pack_rejects_eval_referencing_missing_skill(tmp_path: Path) ->
         assert "Eval `health-basic` references missing skill `nonexistent-skill`" in str(exc)
     else:
         raise AssertionError("validate_pack should reject eval with missing skill ref")
+
+
+def test_load_pack_rejects_v1alpha1_with_migration_pointer(tmp_path: Path) -> None:
+    pack_dir = tmp_path / "old-pack"
+    old_api = "openagentix.io/v1alpha" + "1"  # concatenated so the migration sed skips it
+    write(
+        pack_dir / "AOH.yaml",
+        f"""
+        apiVersion: {old_api}
+        kind: Pack
+        metadata:
+          name: old-pack
+        """,
+    )
+    write(
+        pack_dir / "skills/service-health-report/SKILL.md",
+        """
+        ---
+        name: service-health-report
+        description: Use when summarizing the health of a service.
+        ---
+
+        # Service Health Report
+        """,
+    )
+
+    try:
+        load_pack(pack_dir)
+    except PackError as exc:
+        assert "no longer supported" in str(exc)
+        assert "migration" in str(exc)
+    else:
+        raise AssertionError("load_pack should reject v1alpha1 packs")

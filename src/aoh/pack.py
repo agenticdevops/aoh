@@ -54,8 +54,14 @@ def load_pack(root: Path | str) -> Pack:
     manifest_path = pack_root / "AOH.yaml"
     manifest = _read_yaml(manifest_path)
 
-    if manifest.get("apiVersion") != "openagentix.io/v1alpha1":
-        raise PackError("AOH.yaml apiVersion must be openagentix.io/v1alpha1")
+    api_version = manifest.get("apiVersion")
+    if api_version == "openagentix.io/v1alpha1":
+        raise PackError(
+            "AOH.yaml apiVersion openagentix.io/v1alpha1 is no longer supported — "
+            "see docs/spec.md migration notes"
+        )
+    if api_version != "openagentix.io/v1alpha2":
+        raise PackError("AOH.yaml apiVersion must be openagentix.io/v1alpha2")
     if manifest.get("kind") != "Pack":
         raise PackError("AOH.yaml kind must be Pack")
 

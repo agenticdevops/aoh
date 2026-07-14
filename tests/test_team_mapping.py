@@ -20,7 +20,7 @@ def create_team_pack(root: Path) -> Path:
     write(
         pack / "AOH.yaml",
         """
-        apiVersion: openagentix.io/v1alpha1
+        apiVersion: openagentix.io/v1alpha2
         kind: Pack
         metadata:
           name: acme-platform-ops
@@ -41,7 +41,7 @@ def create_team_pack(root: Path) -> Path:
     write(
         pack / "roles/sre-platform.yaml",
         """
-        apiVersion: openagentix.io/v1alpha1
+        apiVersion: openagentix.io/v1alpha2
         kind: Role
         metadata:
           name: sre-platform
@@ -60,7 +60,7 @@ def create_team_pack(root: Path) -> Path:
     write(
         pack / "roles/devops-automation.yaml",
         """
-        apiVersion: openagentix.io/v1alpha1
+        apiVersion: openagentix.io/v1alpha2
         kind: Role
         metadata:
           name: devops-automation
@@ -79,7 +79,7 @@ def create_team_pack(root: Path) -> Path:
     write(
         pack / "teams/platform-ops.yaml",
         """
-        apiVersion: openagentix.io/v1alpha1
+        apiVersion: openagentix.io/v1alpha2
         kind: Team
         metadata:
           name: platform-ops
@@ -98,7 +98,7 @@ def create_team_pack(root: Path) -> Path:
     write(
         pack / "models/worker-codex.yaml",
         """
-        apiVersion: openagentix.io/v1alpha1
+        apiVersion: openagentix.io/v1alpha2
         kind: ModelProfile
         metadata:
           name: worker-codex
@@ -110,7 +110,7 @@ def create_team_pack(root: Path) -> Path:
     write(
         pack / "runtime-requirements/shell-readonly.yaml",
         """
-        apiVersion: openagentix.io/v1alpha1
+        apiVersion: openagentix.io/v1alpha2
         kind: RuntimeRequirement
         metadata:
           name: shell-readonly
@@ -122,7 +122,7 @@ def create_team_pack(root: Path) -> Path:
     write(
         pack / "evals/platform-basic.yaml",
         """
-        apiVersion: openagentix.io/v1alpha1
+        apiVersion: openagentix.io/v1alpha2
         kind: Eval
         metadata:
           name: platform-basic

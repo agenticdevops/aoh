@@ -1,4 +1,4 @@
-apiVersion: openagentix.io/v1alpha1
+apiVersion: openagentix.io/v1alpha2
 kind: Role
 metadata:
   name: devops-automation

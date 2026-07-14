@@ -20,7 +20,7 @@ def create_multi_role_pack(root: Path) -> Path:
     write(
         pack / "AOH.yaml",
         """
-        apiVersion: openagentix.io/v1alpha1
+        apiVersion: openagentix.io/v1alpha2
         kind: Pack
         metadata:
           name: acme-platform-ops
@@ -43,7 +43,7 @@ def create_multi_role_pack(root: Path) -> Path:
     write(
         pack / "roles/sre-platform.yaml",
         """
-        apiVersion: openagentix.io/v1alpha1
+        apiVersion: openagentix.io/v1alpha2
         kind: Role
         metadata:
           name: sre-platform
@@ -66,7 +66,7 @@ def create_multi_role_pack(root: Path) -> Path:
     write(
         pack / "roles/mlops-training.yaml",
         """
-        apiVersion: openagentix.io/v1alpha1
+        apiVersion: openagentix.io/v1alpha2
         kind: Role
         metadata:
           name: mlops-training
@@ -84,7 +84,7 @@ def create_multi_role_pack(root: Path) -> Path:
     write(
         pack / "models/local-worker.yaml",
         """
-        apiVersion: openagentix.io/v1alpha1
+        apiVersion: openagentix.io/v1alpha2
         kind: ModelProfile
         metadata:
           name: local-worker
@@ -95,7 +95,7 @@ def create_multi_role_pack(root: Path) -> Path:
     write(
         pack / "runtime-requirements/shell-readonly.yaml",
         """
-        apiVersion: openagentix.io/v1alpha1
+        apiVersion: openagentix.io/v1alpha2
         kind: RuntimeRequirement
         metadata:
           name: shell-readonly
@@ -107,7 +107,7 @@ def create_multi_role_pack(root: Path) -> Path:
     write(
         pack / "evals/sre-basic.yaml",
         """
-        apiVersion: openagentix.io/v1alpha1
+        apiVersion: openagentix.io/v1alpha2
         kind: Eval
         metadata:
           name: sre-basic
