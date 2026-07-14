@@ -42,22 +42,6 @@ def create_docker_cleanup_pack(root: Path) -> Path:
         """,
     )
     write(
-        pack / "workflows/docker-disk-cleanup.yaml",
-        """
-        apiVersion: openagentix.io/v1alpha1
-        kind: Workflow
-        metadata:
-          name: docker-disk-cleanup
-        spec:
-          skills:
-            - docker-disk-cleanup
-          agentRole: ops-triage-lead
-          modelProfile: local-worker
-          runtimeRequirements:
-            - docker-readonly
-        """,
-    )
-    write(
         pack / "agents/ops-triage-lead.yaml",
         """
         apiVersion: openagentix.io/v1alpha1
@@ -112,7 +96,6 @@ def test_load_pack_discovers_core_artifacts(tmp_path: Path) -> None:
 
     assert pack.name == "docker-disk-cleanup"
     assert pack.skills == ["docker-disk-cleanup"]
-    assert pack.workflows == ["docker-disk-cleanup"]
     assert pack.agent_roles == ["ops-triage-lead"]
     assert pack.model_profiles == ["local-worker"]
     assert pack.runtime_requirements == ["docker-readonly"]
@@ -127,7 +110,7 @@ def test_generate_hermes_adapter_materializes_hermes_skills_and_instructions(tmp
     result = generate_hermes_adapter(pack, output_dir)
 
     skill_file = output_dir / "skills/docker-disk-cleanup/SKILL.md"
-    command_file = output_dir / "commands/docker-disk-cleanup.md"
+    command_file = output_dir / "commands/ops-docker-disk-cleanup.md"
 
     assert result.runtime == "hermes"
     assert skill_file.exists()
@@ -187,19 +170,23 @@ def test_validate_pack_requires_at_least_one_skill(tmp_path: Path) -> None:
         raise AssertionError("validate_pack should require at least one skill")
 
 
-def test_validate_pack_rejects_workflow_references_to_missing_artifacts(tmp_path: Path) -> None:
-    pack_dir = create_docker_cleanup_pack(tmp_path)
-    workflow = pack_dir / "workflows/docker-disk-cleanup.yaml"
-    workflow.write_text(
-        workflow.read_text(encoding="utf-8").replace("docker-readonly", "missing-runtime"),
-        encoding="utf-8",
+def test_load_pack_rejects_stale_workflows_dir(tmp_path: Path) -> None:
+    pack_dir = create_skills_only_pack(tmp_path)
+    write(
+        pack_dir / "workflows/old.yaml",
+        """
+        apiVersion: openagentix.io/v1alpha1
+        kind: Workflow
+        metadata:
+          name: old
+        spec:
+          skills: []
+        """,
     )
 
-    pack = load_pack(pack_dir)
-
     try:
-        validate_pack(pack)
+        load_pack(pack_dir)
     except PackError as exc:
-        assert "missing runtime requirement `missing-runtime`" in str(exc)
+        assert "workflows/ is no longer supported" in str(exc)
     else:
-        raise AssertionError("validate_pack should reject unresolved workflow references")
+        raise AssertionError("load_pack should reject packs with a workflows/ dir")

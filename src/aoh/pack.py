@@ -17,7 +17,6 @@ class Pack:
     name: str
     manifest: dict[str, Any]
     skills: list[str]
-    workflows: list[str]
     agent_roles: list[str]
     teams: list[str]
     model_profiles: list[str]
@@ -33,7 +32,6 @@ class AgentRole:
     project: str | None
     purpose: str
     skills: list[str]
-    workflows: list[str]
     runtime_requirements: list[str]
     model_profile: str | None
     responsibilities: list[str]
@@ -65,12 +63,17 @@ def load_pack(root: Path | str) -> Pack:
     if not isinstance(metadata, dict) or not metadata.get("name"):
         raise PackError("AOH.yaml metadata.name is required")
 
+    if (pack_root / "workflows").exists():
+        raise PackError(
+            "workflows/ is no longer supported — convert workflows to process skills "
+            "(see docs/spec.md migration notes)"
+        )
+
     return Pack(
         root=pack_root,
         name=str(metadata["name"]),
         manifest=manifest,
         skills=_discover_skills(pack_root / "skills"),
-        workflows=_discover_yaml_names(pack_root / "workflows", "Workflow"),
         agent_roles=_discover_yaml_names(pack_root / "agents", "AgentRole"),
         teams=_discover_yaml_names(pack_root / "teams", "Team"),
         model_profiles=_discover_yaml_names(pack_root / "models", "ModelProfile"),
@@ -99,7 +102,6 @@ def load_role(pack: Pack, name: str) -> AgentRole:
         project=_optional_str(spec.get("project")),
         purpose=str(spec.get("purpose") or ""),
         skills=_as_list(spec.get("skills")),
-        workflows=_as_list(spec.get("workflows")),
         runtime_requirements=_as_list(spec.get("runtimeRequirements")),
         model_profile=_optional_str(spec.get("modelProfile")),
         responsibilities=_as_list(spec.get("responsibilities")),
@@ -136,48 +138,11 @@ def validate_pack(pack: Pack) -> None:
     for skill in pack.skills:
         _validate_skill(pack.root / "skills" / skill / "SKILL.md", skill)
 
-    for workflow_path in sorted((pack.root / "workflows").glob("*.yaml")):
-        workflow = _read_yaml(workflow_path)
-        metadata = workflow.get("metadata", {})
-        workflow_name = metadata.get("name", workflow_path.stem)
-        spec = workflow.get("spec")
-        if not isinstance(spec, dict):
-            raise PackError(f"Workflow `{workflow_name}` spec is required")
-
-        for skill in _as_list(spec.get("skills")):
-            if skill not in pack.skills:
-                raise PackError(f"Workflow `{workflow_name}` references missing skill `{skill}`")
-
-        agent_role = spec.get("agentRole")
-        if agent_role and agent_role not in pack.agent_roles:
-            raise PackError(
-                f"Workflow `{workflow_name}` references missing agent role `{agent_role}`"
-            )
-
-        model_profile = spec.get("modelProfile")
-        if model_profile and model_profile not in pack.model_profiles:
-            raise PackError(
-                f"Workflow `{workflow_name}` references missing model profile `{model_profile}`"
-            )
-
-        for requirement in _as_list(spec.get("runtimeRequirements")):
-            if requirement not in pack.runtime_requirements:
-                raise PackError(
-                    f"Workflow `{workflow_name}` references missing runtime requirement `{requirement}`"
-                )
-
-        for eval_name in _as_list(spec.get("evals")):
-            if eval_name not in pack.evals:
-                raise PackError(f"Workflow `{workflow_name}` references missing eval `{eval_name}`")
-
     for role_name in pack.agent_roles:
         role = load_role(pack, role_name)
         for skill in role.skills:
             if skill not in pack.skills:
                 raise PackError(f"AgentRole `{role_name}` references missing skill `{skill}`")
-        for workflow in role.workflows:
-            if workflow not in pack.workflows:
-                raise PackError(f"AgentRole `{role_name}` references missing workflow `{workflow}`")
         for requirement in role.runtime_requirements:
             if requirement not in pack.runtime_requirements:
                 raise PackError(

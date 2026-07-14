@@ -23,7 +23,7 @@ def create_pack(name: str, output: Path | str, description: str) -> Path:
         f"""
         ---
         name: {name}
-        description: Use when performing the {name.replace("-", " ")} ops workflow.
+        description: Use when performing the {name.replace("-", " ")} ops process.
         ---
 
         # {name.replace("-", " ").title()}
@@ -32,29 +32,11 @@ def create_pack(name: str, output: Path | str, description: str) -> Path:
 
         Describe the reusable operational technique, required context, and safe first steps.
 
-        ## Workflow
+        ## Process
 
         1. Inspect current state.
         2. Explain findings.
         3. Recommend the smallest safe next action.
-        """,
-    )
-    _write(
-        target / f"workflows/{name}.yaml",
-        f"""
-        apiVersion: openagentix.io/v1alpha1
-        kind: Workflow
-        metadata:
-          name: {name}
-        spec:
-          skills:
-            - {name}
-          agentRole: ops-triage-lead
-          modelProfile: local-worker
-          runtimeRequirements:
-            - shell-readonly
-          evals:
-            - {name}-basic
         """,
     )
     _write(

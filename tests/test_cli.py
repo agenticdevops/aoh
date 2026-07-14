@@ -26,7 +26,6 @@ def test_init_pack_creates_valid_starter_pack(tmp_path: Path) -> None:
     assert exit_code == 0
     assert (pack_dir / "AOH.yaml").exists()
     assert (pack_dir / "skills/postgres-health-check/SKILL.md").exists()
-    assert (pack_dir / "workflows/postgres-health-check.yaml").exists()
 
     pack = load_pack(pack_dir)
     validate_pack(pack)

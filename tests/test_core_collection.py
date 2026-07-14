@@ -14,9 +14,9 @@ def test_core_docker_disk_cleanup_pack_is_valid(tmp_path: Path) -> None:
 
     assert pack.name == "docker-disk-cleanup"
     assert pack.skills == ["docker-disk-cleanup"]
-    assert pack.workflows == []
 
     result = generate_hermes_adapter(pack, tmp_path / "hermes")
 
     assert result.runtime == "hermes"
     assert (tmp_path / "hermes/skills/docker-disk-cleanup/SKILL.md").exists()
+    assert (tmp_path / "hermes/commands/ops-docker-disk-cleanup.md").exists()

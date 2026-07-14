@@ -16,10 +16,10 @@ def test_install_hermes_pack_copies_skill_into_category_and_adds_aoh_reference(t
     result = install_hermes_pack(pack, skills_dir, category="aoh")
 
     installed_skill = skills_dir / "aoh/docker-disk-cleanup/SKILL.md"
-    workflow_reference = skills_dir / "aoh/docker-disk-cleanup/references/aoh-workflow.md"
+    pack_reference = skills_dir / "aoh/docker-disk-cleanup/references/aoh-pack.md"
 
     assert result.runtime == "hermes"
     assert installed_skill.exists()
-    assert workflow_reference.exists()
+    assert pack_reference.exists()
     assert "Docker Disk Cleanup" in installed_skill.read_text(encoding="utf-8")
-    assert "docker-disk-cleanup" in workflow_reference.read_text(encoding="utf-8")
+    assert "docker-disk-cleanup" in pack_reference.read_text(encoding="utf-8")

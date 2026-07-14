@@ -39,42 +39,6 @@ def create_team_pack(root: Path) -> Path:
             """,
         )
     write(
-        pack / "workflows/platform-sre-triage.yaml",
-        """
-        apiVersion: openagentix.io/v1alpha1
-        kind: Workflow
-        metadata:
-          name: platform-sre-triage
-        spec:
-          skills:
-            - service-health-report
-          agentRole: sre-platform
-          modelProfile: worker-codex
-          runtimeRequirements:
-            - shell-readonly
-          evals:
-            - platform-basic
-        """,
-    )
-    write(
-        pack / "workflows/devops-release-automation.yaml",
-        """
-        apiVersion: openagentix.io/v1alpha1
-        kind: Workflow
-        metadata:
-          name: devops-release-automation
-        spec:
-          skills:
-            - deployment-automation
-          agentRole: devops-automation
-          modelProfile: worker-codex
-          runtimeRequirements:
-            - shell-readonly
-          evals:
-            - platform-basic
-        """,
-    )
-    write(
         pack / "agents/sre-platform.yaml",
         """
         apiVersion: openagentix.io/v1alpha1
@@ -88,8 +52,6 @@ def create_team_pack(root: Path) -> Path:
           purpose: Own reliability.
           skills:
             - service-health-report
-          workflows:
-            - platform-sre-triage
           runtimeRequirements:
             - shell-readonly
           modelProfile: worker-codex
@@ -109,8 +71,6 @@ def create_team_pack(root: Path) -> Path:
           purpose: Own release automation.
           skills:
             - deployment-automation
-          workflows:
-            - devops-release-automation
           runtimeRequirements:
             - shell-readonly
           modelProfile: worker-codex

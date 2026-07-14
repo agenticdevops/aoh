@@ -41,25 +41,6 @@ def create_multi_role_pack(root: Path) -> Path:
             """,
         )
     write(
-        pack / "workflows/platform-sre-triage.yaml",
-        """
-        apiVersion: openagentix.io/v1alpha1
-        kind: Workflow
-        metadata:
-          name: platform-sre-triage
-        spec:
-          skills:
-            - docker-disk-cleanup
-            - service-health-report
-          agentRole: sre-platform
-          modelProfile: local-worker
-          runtimeRequirements:
-            - shell-readonly
-          evals:
-            - sre-basic
-        """,
-    )
-    write(
         pack / "agents/sre-platform.yaml",
         """
         apiVersion: openagentix.io/v1alpha1
@@ -74,8 +55,6 @@ def create_multi_role_pack(root: Path) -> Path:
           skills:
             - docker-disk-cleanup
             - service-health-report
-          workflows:
-            - platform-sre-triage
           runtimeRequirements:
             - shell-readonly
           modelProfile: local-worker
@@ -97,7 +76,6 @@ def create_multi_role_pack(root: Path) -> Path:
           purpose: Own model training job operations.
           skills:
             - ml-training-job-triage
-          workflows: []
           runtimeRequirements:
             - shell-readonly
           modelProfile: local-worker
@@ -150,7 +128,6 @@ def test_role_declares_project_scoped_capabilities(tmp_path: Path) -> None:
     assert role.org == "acme"
     assert role.project == "platform"
     assert role.skills == ["docker-disk-cleanup", "service-health-report"]
-    assert role.workflows == ["platform-sre-triage"]
 
 
 def test_hermes_agent_install_can_be_scoped_to_a_role(tmp_path: Path) -> None:
@@ -176,3 +153,4 @@ def test_hermes_agent_install_can_be_scoped_to_a_role(tmp_path: Path) -> None:
     assert "--skills docker-disk-cleanup,service-health-report" in launch
     assert "SRE - Acme Platform" in soul
     assert "Own platform reliability and incident triage." in soul
+    assert "Workflows:" not in soul
