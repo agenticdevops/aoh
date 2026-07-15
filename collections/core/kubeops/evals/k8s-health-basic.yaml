@@ -1,0 +1,11 @@
+apiVersion: openagentix.io/v1alpha2
+kind: Eval
+metadata:
+  name: k8s-health-basic
+spec:
+  skill: k8s-service-health-report
+  prompt: Give me a health report for this cluster.
+  successCriteria:
+    - verdict first, then evidence
+    - covers nodes, workloads, restarts, events, endpoints
+    - short and actionable

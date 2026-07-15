@@ -1,0 +1,11 @@
+apiVersion: openagentix.io/v1alpha2
+kind: Eval
+metadata:
+  name: node-notready-basic
+spec:
+  skill: node-notready-triage
+  prompt: A node is NotReady and workloads are degraded. Find the cause.
+  successCriteria:
+    - checks node conditions and CNI/kube-system pods
+    - separates node-level from network-level causes
+    - names human-only fixes instead of attempting them

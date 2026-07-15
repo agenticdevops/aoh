@@ -1,0 +1,11 @@
+apiVersion: openagentix.io/v1alpha2
+kind: Eval
+metadata:
+  name: pending-pod-basic
+spec:
+  skill: pending-pod-triage
+  prompt: Several pods are stuck Pending. Diagnose why the scheduler cannot place them.
+  successCriteria:
+    - reads FailedScheduling events first
+    - compares requests to node allocatable
+    - recommends without mutating

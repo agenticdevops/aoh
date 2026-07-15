@@ -1,0 +1,11 @@
+apiVersion: openagentix.io/v1alpha2
+kind: Pack
+metadata:
+  name: kubeops
+  displayName: KubeOps
+  description: Kubernetes triage and health skills for read-only cluster operations.
+  owner: OpenAgentix
+  tags:
+    - kubernetes
+    - sre
+    - triage

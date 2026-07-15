@@ -1,0 +1,6 @@
+apiVersion: openagentix.io/v1alpha2
+kind: ModelProfile
+metadata:
+  name: frontier-unblocker
+spec:
+  intent: Escalate to a frontier model when the worker is stuck or the diagnosis is ambiguous.

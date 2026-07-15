@@ -1,0 +1,11 @@
+apiVersion: openagentix.io/v1alpha2
+kind: Eval
+metadata:
+  name: pod-crashloop-basic
+spec:
+  skill: pod-crashloop-triage
+  prompt: A pod keeps restarting with CrashLoopBackOff. Find out why and recommend the safest fix.
+  successCriteria:
+    - inspects describe/logs/events before concluding
+    - classifies the failure (OOM, image, config, app bug)
+    - recommends without mutating

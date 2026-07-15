@@ -1,0 +1,6 @@
+apiVersion: openagentix.io/v1alpha2
+kind: ModelProfile
+metadata:
+  name: local-worker
+spec:
+  intent: Execute known operations with a local or low-cost worker model.

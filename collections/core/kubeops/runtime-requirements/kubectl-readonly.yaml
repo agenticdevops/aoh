@@ -1,0 +1,7 @@
+apiVersion: openagentix.io/v1alpha2
+kind: RuntimeRequirement
+metadata:
+  name: kubectl-readonly
+spec:
+  capabilities:
+    - k8s.read
