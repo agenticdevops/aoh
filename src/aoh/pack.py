@@ -49,6 +49,13 @@ class Team:
     default_model_profile: str | None
 
 
+@dataclass(frozen=True)
+class Binding:
+    name: str
+    role: str
+    target: dict[str, Any]
+
+
 def load_pack(root: Path | str) -> Pack:
     pack_root = Path(root)
     manifest_path = pack_root / "AOH.yaml"
@@ -141,6 +148,31 @@ def load_team(pack: Pack, name: str) -> Team:
         roles=_as_list(spec.get("roles")),
         default_model_profile=_optional_str(spec.get("defaultModelProfile")),
     )
+
+
+def load_binding(path: Path | str) -> Binding:
+    binding_path = Path(path)
+    doc = _read_yaml(binding_path)
+
+    if doc.get("apiVersion") != "openagentix.io/v1alpha2":
+        raise PackError(f"{binding_path} apiVersion must be openagentix.io/v1alpha2")
+    if doc.get("kind") != "Binding":
+        raise PackError(f"{binding_path} kind must be Binding")
+
+    metadata = doc.get("metadata")
+    if not isinstance(metadata, dict) or not metadata.get("name"):
+        raise PackError(f"{binding_path} metadata.name is required")
+    name = str(metadata["name"])
+
+    spec = doc.get("spec")
+    if not isinstance(spec, dict) or not spec.get("role"):
+        raise PackError(f"Binding `{name}` spec.role is required")
+
+    target = spec.get("target")
+    if not isinstance(target, dict):
+        raise PackError(f"Binding `{name}` spec.target must be a mapping")
+
+    return Binding(name=name, role=str(spec["role"]), target=target)
 
 
 def validate_pack(pack: Pack) -> None:
