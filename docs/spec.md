@@ -40,6 +40,8 @@ Kinds below.
   Materialized by adapters at install time (`--binding`); for kubernetes targets the
   Hermes adapter generates a provision script that creates a dedicated read-only RBAC
   identity and scoped kubeconfig. AOH generates the script; the operator runs it.
+  The demo ClusterRole grants read on everything including Secrets — production
+  bindings should tighten it.
 
 ## Commands
 

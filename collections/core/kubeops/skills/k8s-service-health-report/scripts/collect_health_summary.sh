@@ -19,8 +19,8 @@ kubectl get pods "${SCOPE[@]}" --no-headers 2>/dev/null \
   | grep -Ev "Running|Completed|Succeeded" || echo "all pods healthy"
 echo
 echo "== Top restart counts =="
-kubectl get pods "${SCOPE[@]}" --no-headers 2>/dev/null \
-  | sort -t' ' -k1 -rn -k5 | head -10 || true
+kubectl get pods "${SCOPE[@]}" --sort-by='.status.containerStatuses[0].restartCount' --no-headers 2>/dev/null \
+  | tail -10 || true
 echo
 echo "== Warning events (recent) =="
 kubectl get events "${SCOPE[@]}" --field-selector type=Warning --sort-by=.lastTimestamp 2>/dev/null | tail -20 || echo "(none)"

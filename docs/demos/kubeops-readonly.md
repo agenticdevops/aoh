@@ -59,3 +59,8 @@ to report the denial as the guardrail working.
 - Verified: Hermes's own command guardrails have no kubectl awareness (hardcoded
   pattern list, no subcommand allow/deny) — `kubectl delete` would run unprompted.
   The cluster must be the wall, so it is.
+- Read-only is not read-nothing: get/list/watch on `*` includes every Secret in the
+  cluster. Fine for a local kind demo; production bindings should tighten the
+  ClusterRole (e.g. aggregated `view` + explicit nodes, excluding `secrets`).
+- The minted token expires after 720h (30 days). Re-run provision.sh to refresh —
+  it is idempotent.

@@ -4,9 +4,13 @@ from dataclasses import dataclass
 import json
 import os
 from pathlib import Path
+import re
 from shutil import copytree
 
 from aoh.pack import Binding, Pack, PackError, Role, load_role, load_team
+
+
+_SAFE_BINDING_VALUE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 
 @dataclass(frozen=True)
@@ -128,6 +132,16 @@ def install_hermes_agent(
             raise PackError(
                 f"Binding `{binding.name}` target.kubeContext is required for kubernetes targets"
             )
+        for label, value in (
+            ("metadata.name", binding.name),
+            ("target.kubeContext", str(binding.target.get("kubeContext"))),
+            ("target.namespace", str(binding.target.get("namespace", "default"))),
+        ):
+            if not _SAFE_BINDING_VALUE_RE.fullmatch(value):
+                raise PackError(
+                    f"Binding `{binding.name}` {label} contains unsafe characters "
+                    f"(allowed: alphanumerics, dot, dash, underscore)"
+                )
         role_name = binding.role
 
     profile_dir = Path(profiles_dir).expanduser() / profile_name

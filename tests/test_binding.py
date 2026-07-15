@@ -148,8 +148,12 @@ def test_install_hermes_agent_with_binding_materializes_rbac_artifacts(tmp_path:
     assert '"binding"' in manifest
     assert "kind-sresquad-demo" in manifest
 
+    import json as _json
+    manifest_doc = _json.loads(manifest)
+    assert manifest_doc["role"] == "kubeops-copilot"
 
-def test_install_binding_role_defaults_and_missing_role_rejected(tmp_path: Path) -> None:
+
+def test_install_binding_missing_role_rejected(tmp_path: Path) -> None:
     pack = load_pack(PROJECT_ROOT / "collections/core/kubeops")
     path = tmp_path / "binding.yaml"
     write(
@@ -181,6 +185,62 @@ def test_install_binding_role_defaults_and_missing_role_rejected(tmp_path: Path)
         assert "Binding `kubeops-sresquad` references missing role `nonexistent-role`" in str(exc)
     else:
         raise AssertionError("install should reject binding to missing role")
+
+
+def test_install_binding_rejects_unsafe_target_values(tmp_path: Path) -> None:
+    pack = load_pack(PROJECT_ROOT / "collections/core/kubeops")
+    path = tmp_path / "binding.yaml"
+    write(
+        path,
+        '''
+        apiVersion: openagentix.io/v1alpha2
+        kind: Binding
+        metadata:
+          name: kubeops-sresquad
+        spec:
+          role: kubeops-copilot
+          target:
+            kubeContext: 'x"; rm -rf ~; echo "'
+            namespace: default
+        ''',
+    )
+    binding = load_binding(path)
+
+    try:
+        install_hermes_agent(
+            pack,
+            tmp_path / "profiles",
+            profile_name="kubeops-sresquad",
+            provider="openai-codex",
+            model="gpt-5.4",
+            cwd="/tmp",
+            binding=binding,
+        )
+    except PackError as exc:
+        assert "unsafe characters" in str(exc)
+    else:
+        raise AssertionError("install should reject unsafe binding values")
+
+
+def test_install_binding_conflicting_role_rejected(tmp_path: Path) -> None:
+    pack = load_pack(PROJECT_ROOT / "collections/core/kubeops")
+    binding = load_binding(write_binding(tmp_path / "binding.yaml"))
+
+    try:
+        install_hermes_agent(
+            pack,
+            tmp_path / "profiles",
+            profile_name="kubeops-sresquad",
+            provider="openai-codex",
+            model="gpt-5.4",
+            cwd="/tmp",
+            role_name="other-role",
+            binding=binding,
+        )
+    except PackError as exc:
+        assert "conflicts with --role `other-role`" in str(exc)
+    else:
+        raise AssertionError("install should reject conflicting --role")
 
 
 def test_install_binding_requires_kube_context(tmp_path: Path) -> None:

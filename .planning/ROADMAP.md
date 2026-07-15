@@ -15,7 +15,7 @@ Pack format + validator + Hermes adapter producing launchable role profiles.
 |---|-------|------|--------|
 | 1 | Progressive disclosure | Skills-only pack validates; workflows/roles/teams/models optional | ✅ done |
 | 2 | Collapse Workflow kind | Workflows become process skills; spec v1alpha2; migrate example packs | ✅ done |
-| 2.5 | KubeOps pack + minimal Binding | kubeops pack; kind: Binding (role × target); RBAC read-only materialization; live demo vs kind-sresquad-demo | ✅ done |
+| 2.5 | KubeOps pack + minimal Binding | kubeops pack; kind: Binding (role × target); RBAC read-only materialization; demo walkthrough (live run pending) | ✅ done |
 | 3 | Adapter interface | Extract `RuntimeAdapter` protocol from hermes.py; CLI → `aoh install --runtime <x>` | pending |
 | 4 | Drift model | Manifest w/ source ref + content hashes; `aoh status` / `sync` / `capture`; `--link` dev mode | pending |
 | 5 | Claude Code adapter | Pack → skills + CLAUDE.md + agent defs; proves engine-neutrality | pending |
