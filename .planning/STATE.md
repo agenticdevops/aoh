@@ -7,15 +7,16 @@
 
 - Milestone: v0.2 (Simplify + Solidify)
 - Current phase: 2.5 (KubeOps pack + minimal Binding) — ✅ done
-- Next action: live demo vs `kind-sresquad-demo` (docs/demos/kubeops-readonly.md), then
-  phase 3 (Adapter interface) — extract `RuntimeAdapter` protocol from hermes.py,
-  CLI → `aoh install --runtime <x>`
+- Next action: phase 3 (Adapter interface) — extract `RuntimeAdapter` protocol from
+  hermes.py, CLI → `aoh install --runtime <x>`. Live RBAC demo done 2026-07-15
+  (provision + Forbidden proof on kind-sresquad-demo); agent-chat walkthrough
+  (docs/demos/kubeops-readonly.md §4) still open for user
 
 ## Repo facts
 
 - Remote: https://github.com/agenticdevops/aoh.git (main tracks origin/main)
 - Nested repo inside `experiments/` parent tree (parent gitignores `aoh/`)
-- Test command: `rtk proxy uv run pytest -q` — 29 passing (v0.2 phase 2.5)
+- Test command: `rtk proxy uv run pytest -q` — 31 passing (v0.2 phase 2.5 + review fixes)
 - Validate: `uv run aoh validate <pack>`
 
 ## Session log
