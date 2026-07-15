@@ -58,6 +58,10 @@ Minimum viable pack = AOH.yaml + one skill. Five minutes to value.
 | 2026-07-14 | `agents/` → `roles/`, kind `AgentRole` → `Role` | Role = real-world WHO; avoids "agent" overload; cheapest before adapter #2 |
 | 2026-07-14 | Eval links to skill via required `spec.skill` | Skill+eval travel together; eval gates cheap-model trust per skill |
 | 2026-07-14 | Command namespace prefix `ops` (user decision) | Easier to type than `aoh`; canonical `ops:<skill>`, separator per adapter; conflicts = other tools' problem |
+| 2026-07-15 | Binding pulled forward minimally (role × target, open target map) | kubeops test needs cluster context injection; ad-hoc CLI flags would be throwaway |
+| 2026-07-15 | Read-only agents enforced via RBAC-scoped kubeconfig, AOH generates provision.sh, user executes | Strongest native guardrail, runtime-agnostic, separate agent identity + audit; preserves "AOH never executes" |
+| 2026-07-15 | Hermes NOT used for kubectl enforcement | Verified from source: hardcoded pattern list, zero kubectl awareness, no subcommand allow/deny config |
+| 2026-07-15 | Transparent proxy enforcement rejected for v1 | Guards endpoint not credential; user identity; live process; noted as future spec.enforcement alternative |
 
 ## Open Questions
 
