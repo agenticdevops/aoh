@@ -6,7 +6,8 @@ import textwrap
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-from aoh.pack import PackError, load_binding
+from aoh.adapters.hermes import install_hermes_agent
+from aoh.pack import PackError, load_binding, load_pack
 
 
 def write(path: Path, content: str) -> None:
@@ -108,3 +109,109 @@ def test_load_binding_rejects_old_api_version(tmp_path: Path) -> None:
         assert "apiVersion must be openagentix.io/v1alpha2" in str(exc)
     else:
         raise AssertionError("load_binding should reject non-v1alpha2 apiVersion")
+
+
+def test_install_hermes_agent_with_binding_materializes_rbac_artifacts(tmp_path: Path) -> None:
+    pack = load_pack(PROJECT_ROOT / "collections/core/kubeops")
+    binding = load_binding(write_binding(tmp_path / "binding.yaml"))
+
+    install_hermes_agent(
+        pack,
+        tmp_path / "profiles",
+        profile_name="kubeops-sresquad",
+        provider="openai-codex",
+        model="gpt-5.4",
+        cwd="/tmp",
+        binding=binding,
+    )
+
+    profile = tmp_path / "profiles/kubeops-sresquad"
+    provision = profile / "provision.sh"
+    launch = profile.joinpath("launch.sh").read_text(encoding="utf-8")
+    soul = profile.joinpath("SOUL.md").read_text(encoding="utf-8")
+    manifest = profile.joinpath("aoh-agent.json").read_text(encoding="utf-8")
+
+    assert provision.exists()
+    provision_text = provision.read_text(encoding="utf-8")
+    assert 'CONTEXT="kind-sresquad-demo"' in provision_text
+    assert 'SA_NAME="aoh-kubeops-sresquad"' in provision_text
+    assert "aoh-readonly" in provision_text
+    assert '"get", "list", "watch"' in provision_text
+    assert provision.stat().st_mode & 0o111, "provision.sh must be executable"
+
+    assert 'export KUBECONFIG="$(cd "$(dirname "$0")" && pwd)/kubeconfig"' in launch
+
+    assert "## Binding" in soul
+    assert "kind-sresquad-demo" in soul
+    assert "read-only" in soul
+
+    assert '"binding"' in manifest
+    assert "kind-sresquad-demo" in manifest
+
+
+def test_install_binding_role_defaults_and_missing_role_rejected(tmp_path: Path) -> None:
+    pack = load_pack(PROJECT_ROOT / "collections/core/kubeops")
+    path = tmp_path / "binding.yaml"
+    write(
+        path,
+        """
+        apiVersion: openagentix.io/v1alpha2
+        kind: Binding
+        metadata:
+          name: kubeops-sresquad
+        spec:
+          role: nonexistent-role
+          target:
+            kubeContext: kind-sresquad-demo
+        """,
+    )
+    binding = load_binding(path)
+
+    try:
+        install_hermes_agent(
+            pack,
+            tmp_path / "profiles",
+            profile_name="kubeops-sresquad",
+            provider="openai-codex",
+            model="gpt-5.4",
+            cwd="/tmp",
+            binding=binding,
+        )
+    except PackError as exc:
+        assert "Binding `kubeops-sresquad` references missing role `nonexistent-role`" in str(exc)
+    else:
+        raise AssertionError("install should reject binding to missing role")
+
+
+def test_install_binding_requires_kube_context(tmp_path: Path) -> None:
+    pack = load_pack(PROJECT_ROOT / "collections/core/kubeops")
+    path = tmp_path / "binding.yaml"
+    write(
+        path,
+        """
+        apiVersion: openagentix.io/v1alpha2
+        kind: Binding
+        metadata:
+          name: kubeops-sresquad
+        spec:
+          role: kubeops-copilot
+          target:
+            namespace: default
+        """,
+    )
+    binding = load_binding(path)
+
+    try:
+        install_hermes_agent(
+            pack,
+            tmp_path / "profiles",
+            profile_name="kubeops-sresquad",
+            provider="openai-codex",
+            model="gpt-5.4",
+            cwd="/tmp",
+            binding=binding,
+        )
+    except PackError as exc:
+        assert "Binding `kubeops-sresquad` target.kubeContext is required" in str(exc)
+    else:
+        raise AssertionError("install should require target.kubeContext")

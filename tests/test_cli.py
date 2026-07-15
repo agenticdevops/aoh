@@ -32,3 +32,43 @@ def test_init_pack_creates_valid_starter_pack(tmp_path: Path) -> None:
 
     assert pack.name == "postgres-health-check"
     assert pack.skills == ["postgres-health-check"]
+
+
+def test_install_hermes_agent_cli_accepts_binding(tmp_path: Path) -> None:
+    import textwrap
+
+    binding_file = tmp_path / "kubeops-sresquad.yaml"
+    binding_file.write_text(
+        textwrap.dedent(
+            """
+            apiVersion: openagentix.io/v1alpha2
+            kind: Binding
+            metadata:
+              name: kubeops-sresquad
+            spec:
+              role: kubeops-copilot
+              target:
+                kubeContext: kind-sresquad-demo
+                namespace: default
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    exit_code = main(
+        [
+            "install-hermes-agent",
+            str(PROJECT_ROOT / "collections/core/kubeops"),
+            "--profiles-dir",
+            str(tmp_path / "profiles"),
+            "--profile",
+            "kubeops-sresquad",
+            "--binding",
+            str(binding_file),
+        ]
+    )
+
+    assert exit_code == 0
+    assert (tmp_path / "profiles/kubeops-sresquad/provision.sh").exists()
+    assert (tmp_path / "profiles/kubeops-sresquad/skills/aoh/pod-crashloop-triage/SKILL.md").exists()

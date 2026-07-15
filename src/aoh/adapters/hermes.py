@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from shutil import copytree
 
-from aoh.pack import Pack, Role, load_role, load_team
+from aoh.pack import Binding, Pack, PackError, Role, load_role, load_team
 
 
 @dataclass(frozen=True)
@@ -113,7 +113,23 @@ def install_hermes_agent(
     cwd: str,
     category: str = "aoh",
     role_name: str | None = None,
+    binding: Binding | None = None,
 ) -> AdapterResult:
+    if binding is not None:
+        if binding.role not in pack.roles:
+            raise PackError(
+                f"Binding `{binding.name}` references missing role `{binding.role}`"
+            )
+        if role_name is not None and role_name != binding.role:
+            raise PackError(
+                f"Binding `{binding.name}` role `{binding.role}` conflicts with --role `{role_name}`"
+            )
+        if not binding.target.get("kubeContext"):
+            raise PackError(
+                f"Binding `{binding.name}` target.kubeContext is required for kubernetes targets"
+            )
+        role_name = binding.role
+
     profile_dir = Path(profiles_dir).expanduser() / profile_name
     skills_dir = profile_dir / "skills"
     profile_dir.mkdir(parents=True, exist_ok=True)
@@ -130,7 +146,7 @@ def install_hermes_agent(
         _render_profile_config(provider=provider, model=model, cwd=cwd),
         encoding="utf-8",
     )
-    soul_file.write_text(_render_agent_soul(pack, role=role), encoding="utf-8")
+    soul_file.write_text(_render_agent_soul(pack, role=role, binding=binding), encoding="utf-8")
     manifest_file.write_text(
         json.dumps(
             {
@@ -138,6 +154,9 @@ def install_hermes_agent(
                 "profile": profile_name,
                 "pack": pack.name,
                 "role": role.name if role else None,
+                "binding": (
+                    {"name": binding.name, "target": binding.target} if binding else None
+                ),
                 "skills": selected_skills,
                 "provider": provider,
                 "model": model,
@@ -151,7 +170,11 @@ def install_hermes_agent(
         encoding="utf-8",
     )
     launch_file.write_text(
-        _render_launch_script(profile_name=profile_name, skills=selected_skills),
+        _render_launch_script(
+            profile_name=profile_name,
+            skills=selected_skills,
+            with_kubeconfig=binding is not None,
+        ),
         encoding="utf-8",
     )
     os.chmod(launch_file, 0o755)
@@ -163,6 +186,13 @@ def install_hermes_agent(
         launch_file,
         *skill_result.generated_files,
     ]
+
+    if binding is not None:
+        provision_file = profile_dir / "provision.sh"
+        provision_file.write_text(_render_provision_script(binding), encoding="utf-8")
+        os.chmod(provision_file, 0o755)
+        generated.append(provision_file)
+
     return AdapterResult(runtime="hermes", output_dir=profile_dir, generated_files=generated)
 
 
@@ -273,7 +303,21 @@ def _render_profile_config(*, provider: str, model: str, cwd: str) -> str:
     )
 
 
-def _render_agent_soul(pack: Pack, *, role: Role | None = None) -> str:
+def _render_agent_soul(
+    pack: Pack, *, role: Role | None = None, binding: Binding | None = None
+) -> str:
+    binding_block = ""
+    if binding is not None:
+        namespace = binding.target.get("namespace", "default")
+        binding_block = (
+            "\n## Binding\n\n"
+            f"- Bound cluster (kube context): {binding.target.get('kubeContext')}\n"
+            f"- Default namespace: {namespace} (you may inspect other namespaces)\n"
+            "- Access: read-only (get/list/watch) enforced by cluster RBAC. Mutation "
+            "attempts will be denied by the API server — report denials as the "
+            "guardrail working, not as errors to work around.\n"
+        )
+
     if role:
         title = role.display_name
         skills = ", ".join(role.skills)
@@ -295,7 +339,7 @@ def _render_agent_soul(pack: Pack, *, role: Role | None = None) -> str:
             f"{responsibilities}\n\n"
             "Start with read-only inspection unless the skill or user explicitly asks for "
             "a write action and the runtime supports approval.\n"
-        )
+        ) + binding_block
 
     skills = ", ".join(pack.skills)
     requirements = ", ".join(pack.runtime_requirements)
@@ -310,13 +354,105 @@ def _render_agent_soul(pack: Pack, *, role: Role | None = None) -> str:
         "If the user asks for this pack's capability, load and follow the associated "
         "skill instructions. Start with read-only inspection unless the skill or user "
         "explicitly asks for a write action and the runtime supports approval.\n"
-    )
+    ) + binding_block
 
 
-def _render_launch_script(*, profile_name: str, skills: list[str]) -> str:
+def _render_launch_script(
+    *, profile_name: str, skills: list[str], with_kubeconfig: bool = False
+) -> str:
     skill_args = ",".join(skills)
+    kubeconfig_line = (
+        'export KUBECONFIG="$(cd "$(dirname "$0")" && pwd)/kubeconfig"\n'
+        if with_kubeconfig
+        else ""
+    )
     return (
         "#!/usr/bin/env bash\n"
         "set -euo pipefail\n"
+        f"{kubeconfig_line}"
         f"exec hermes --profile {profile_name} --skills {skill_args} chat \"$@\"\n"
     )
+
+
+def _render_provision_script(binding: Binding) -> str:
+    context = binding.target.get("kubeContext")
+    namespace = binding.target.get("namespace", "default")
+    sa_name = f"aoh-{binding.name}"
+    return f'''#!/usr/bin/env bash
+set -euo pipefail
+
+# Generated by AOH for binding `{binding.name}`.
+# Provisions a READ-ONLY RBAC identity for the agent, then writes a scoped
+# kubeconfig next to this script. Run ONCE with admin access to the target
+# cluster. AOH never executes this script; you do. Re-running is safe.
+
+CONTEXT="{context}"
+NAMESPACE="{namespace}"
+SA_NAME="{sa_name}"
+PROFILE_DIR="$(cd "$(dirname "$0")" && pwd)"
+KUBECONFIG_OUT="${{PROFILE_DIR}}/kubeconfig"
+
+kubectl --context "${{CONTEXT}}" -n "${{NAMESPACE}}" create serviceaccount "${{SA_NAME}}" \\
+  --dry-run=client -o yaml | kubectl --context "${{CONTEXT}}" apply -f -
+
+kubectl --context "${{CONTEXT}}" apply -f - <<'RBAC'
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: aoh-readonly
+rules:
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+RBAC
+
+kubectl --context "${{CONTEXT}}" apply -f - <<RBAC
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: aoh-readonly-${{SA_NAME}}
+subjects:
+  - kind: ServiceAccount
+    name: ${{SA_NAME}}
+    namespace: ${{NAMESPACE}}
+roleRef:
+  kind: ClusterRole
+  name: aoh-readonly
+  apiGroup: rbac.authorization.k8s.io
+RBAC
+
+TOKEN="$(kubectl --context "${{CONTEXT}}" -n "${{NAMESPACE}}" create token "${{SA_NAME}}" --duration=720h)"
+SERVER="$(kubectl config view --minify --context "${{CONTEXT}}" -o jsonpath='{{.clusters[0].cluster.server}}')"
+CA_DATA="$(kubectl config view --minify --raw --context "${{CONTEXT}}" -o jsonpath='{{.clusters[0].cluster.certificate-authority-data}}')"
+
+if [[ -z "${{CA_DATA}}" ]]; then
+  echo "ERROR: could not read certificate-authority-data from context ${{CONTEXT}}." >&2
+  echo "Inline CA data is required (kind provides it by default)." >&2
+  exit 1
+fi
+
+cat > "${{KUBECONFIG_OUT}}" <<KCFG
+apiVersion: v1
+kind: Config
+clusters:
+  - name: ${{CONTEXT}}
+    cluster:
+      server: ${{SERVER}}
+      certificate-authority-data: ${{CA_DATA}}
+contexts:
+  - name: ${{CONTEXT}}
+    context:
+      cluster: ${{CONTEXT}}
+      user: ${{SA_NAME}}
+      namespace: ${{NAMESPACE}}
+current-context: ${{CONTEXT}}
+users:
+  - name: ${{SA_NAME}}
+    user:
+      token: ${{TOKEN}}
+KCFG
+chmod 600 "${{KUBECONFIG_OUT}}"
+
+echo "Scoped read-only kubeconfig written to ${{KUBECONFIG_OUT}}"
+echo "Verify the guardrail: kubectl --kubeconfig ${{KUBECONFIG_OUT}} delete pod x  # expect Forbidden"
+'''

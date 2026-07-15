@@ -10,7 +10,7 @@ from aoh.adapters.hermes import (
     install_hermes_team,
 )
 from aoh.authoring import create_pack
-from aoh.pack import PackError, load_pack, validate_pack
+from aoh.pack import PackError, load_binding, load_pack, validate_pack
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -47,6 +47,7 @@ def main(argv: list[str] | None = None) -> int:
     agent_hermes.add_argument("--cwd", default=str(Path.cwd()))
     agent_hermes.add_argument("--category", default="aoh")
     agent_hermes.add_argument("--role")
+    agent_hermes.add_argument("--binding", type=Path)
 
     team_hermes = subcommands.add_parser(
         "install-hermes-team", help="Create Hermes profiles for every role in an AOH team"
@@ -85,6 +86,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "install-hermes-agent":
             validate_pack(pack)
+            binding = load_binding(args.binding) if args.binding else None
             result = install_hermes_agent(
                 pack,
                 args.profiles_dir,
@@ -94,6 +96,7 @@ def main(argv: list[str] | None = None) -> int:
                 cwd=args.cwd,
                 category=args.category,
                 role_name=args.role,
+                binding=binding,
             )
             print(f"installed Hermes agent profile in {result.output_dir}")
             return 0
