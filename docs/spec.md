@@ -18,6 +18,10 @@ pack-name/
   evals/<eval-name>.yaml                        # optional
 ```
 
+Bindings (`kind: Binding`) are deliberately NOT part of pack layout — they are
+site-specific (role × target) and live in a separate site repository. See Artifact
+Kinds below.
+
 ## Artifact Kinds
 
 - `Pack`: top-level metadata and ownership. `apiVersion: openagentix.io/v1alpha2`.
@@ -31,6 +35,11 @@ pack-name/
 - `RuntimeRequirement`: capabilities the runtime should provide or warn about.
 - `Eval`: scenario prompt and success criteria for one skill, referenced by required
   `spec.skill`. Evals gate cheap-model trust per skill.
+- `Binding`: site-specific association of a role with a target (e.g.
+  `kubeContext` + default `namespace`). Lives outside packs, in a site repo.
+  Materialized by adapters at install time (`--binding`); for kubernetes targets the
+  Hermes adapter generates a provision script that creates a dedicated read-only RBAC
+  identity and scoped kubeconfig. AOH generates the script; the operator runs it.
 
 ## Commands
 
@@ -72,6 +81,9 @@ Runtime adapters decide how to map this into their platform. For Hermes, a role-
 - every eval declares `spec.skill` and it points to an existing skill.
 - each YAML artifact has the expected `kind` and `metadata.name`.
 - stale v1alpha1 layouts fail loudly: a `workflows/` or `agents/` directory is an error.
+- bindings load standalone: `apiVersion` v1alpha2, `kind: Binding`, `metadata.name`,
+  `spec.role`, and a `spec.target` mapping are required; the referenced role is
+  checked against the pack at install time.
 
 ## Migration Notes (v1alpha1 → v1alpha2)
 

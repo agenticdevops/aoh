@@ -6,18 +6,34 @@
 ## Position
 
 - Milestone: v0.2 (Simplify + Solidify)
-- Current phase: 2 (Collapse Workflow kind) — ✅ done
-- Next action: phase 3 (Adapter interface) — extract `RuntimeAdapter` protocol from
-  hermes.py, CLI → `aoh install --runtime <x>`
+- Current phase: 2.5 (KubeOps pack + minimal Binding) — ✅ done
+- Next action: live demo vs `kind-sresquad-demo` (docs/demos/kubeops-readonly.md), then
+  phase 3 (Adapter interface) — extract `RuntimeAdapter` protocol from hermes.py,
+  CLI → `aoh install --runtime <x>`
 
 ## Repo facts
 
 - Remote: https://github.com/agenticdevops/aoh.git (main tracks origin/main)
 - Nested repo inside `experiments/` parent tree (parent gitignores `aoh/`)
-- Test command: `rtk proxy uv run pytest -q` — 18 passing (v0.2 phase 2)
+- Test command: `rtk proxy uv run pytest -q` — 29 passing (v0.2 phase 2.5)
 - Validate: `uv run aoh validate <pack>`
 
 ## Session log
+
+### 2026-07-15 — kubeops pack + minimal Binding shipped (phase 2.5, subagent-driven development)
+- Executed via subagent-driven development: 4 tasks, each with a clean review
+- 9df57bc `collections/core/kubeops` pack: pod-crashloop-triage, pending-pod-triage,
+  node-notready-triage, k8s-service-health-report skills + `kubeops-copilot` role
+- 1bbf112 minimal `kind: Binding` model in pack.py (role × target, open target map),
+  loaded standalone from site repos
+- 3ae3ebf Hermes materialization: `aoh install-hermes-agent --binding` generates
+  provision.sh (dedicated read-only RBAC identity: get/list/watch), scoped kubeconfig,
+  KUBECONFIG wiring in launch.sh, binding block in SOUL.md
+- Site example `examples/sresquad-site/` + demo walkthrough
+  `docs/demos/kubeops-readonly.md` (safe agentic harness showcase)
+- docs/spec.md updated: `Binding` artifact kind, layout note, validation rule
+- Final suite: 29 passing; all three packs (kubeops, docker-disk-cleanup,
+  acme-platform-ops) validate clean
 
 ### 2026-07-14 — spec v1alpha2 shipped (phase 2, subagent-driven development)
 - Executed via subagent-driven development: 5 tasks, each with a clean review

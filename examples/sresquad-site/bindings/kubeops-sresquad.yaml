@@ -1,0 +1,9 @@
+apiVersion: openagentix.io/v1alpha2
+kind: Binding
+metadata:
+  name: kubeops-sresquad
+spec:
+  role: kubeops-copilot
+  target:
+    kubeContext: kind-sresquad-demo
+    namespace: default

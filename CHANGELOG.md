@@ -5,6 +5,17 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- `collections/core/kubeops` pack: pod-crashloop-triage, pending-pod-triage,
+  node-notready-triage, k8s-service-health-report skills + `kubeops-copilot` role.
+- Minimal `kind: Binding` (role × target, open target map), loaded standalone from
+  site repos — `examples/sresquad-site/` shows the shape.
+- `aoh install-hermes-agent --binding <yaml>`: materializes the binding — generates
+  `provision.sh` (dedicated read-only RBAC identity: get/list/watch), a scoped
+  kubeconfig, KUBECONFIG wiring in launch.sh, and a binding block in SOUL.md.
+- Demo walkthrough: `docs/demos/kubeops-readonly.md` (safe agentic harness showcase).
+
 ### Changed (BREAKING — spec v1alpha2)
 
 - `apiVersion` is now `openagentix.io/v1alpha2`; v1alpha1 packs are rejected with a
