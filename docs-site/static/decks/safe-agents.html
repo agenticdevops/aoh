@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Safe Read-Only Agents</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/reveal.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/theme/white.min.css" id="theme">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap">
+
+<style>
+  :root{
+    --ink:#1e1e1e;
+    --gray:#757575;
+    --paper:#ffffff;
+  }
+  .reveal{ font-family:'Patrick Hand', cursive; color:var(--ink); }
+  .reveal .slides{ text-align:center; }
+  .reveal .slides section{ position:absolute; inset:0; box-sizing:border-box; flex-direction:column; justify-content:center; padding:20px 48px 42px; overflow:hidden; }
+  .reveal .slides > section.present{ display:flex; }
+
+  .reveal h1,.reveal h2,.reveal h3{
+    font-family:'Patrick Hand', cursive;
+    color:var(--ink);
+    text-transform:none;
+    font-weight:700;
+    letter-spacing:0;
+    margin:0 0 6px 0;
+    line-height:1.15;
+  }
+  .reveal h2.t{ font-size:1.75em; }
+  .reveal p.s{ font-size:0.95em; color:var(--gray); margin:0 0 8px 0; }
+  .reveal p.takeaway{
+    font-size:0.92em; color:var(--gray);
+    margin:10px auto 0; max-width:1050px;
+  }
+  .reveal p.takeaway::before{ content:"\2192  "; color:var(--ink); font-weight:700; }
+  .reveal svg{ width:100%; flex:1 1 0; min-height:0; max-height:58%; display:block; margin:8px auto 0; }
+  .reveal .kicker{ font-size:.8em; color:var(--gray); letter-spacing:2px; }
+  .reveal .credit{ font-size:.85em; color:var(--gray); margin-top:16px; }
+  .reveal .credit b{ color:var(--ink); font-weight:700; }
+  .reveal .pageno{ position:absolute; bottom:14px; right:22px; font-size:.6em; color:#bdbdbd; }
+  .reveal .slide-number{ font-family:'Patrick Hand',cursive; }
+
+  /* SVG typographic helpers */
+  text{ font-family:'Patrick Hand', cursive; }
+  .lbl{ fill:var(--ink); font-size:21px; }
+  .lbl-sm{ fill:var(--ink); font-size:17px; }
+  .lbl-g{ fill:var(--gray); font-size:17px; }
+  .lbl-b{ fill:var(--ink); font-size:23px; font-weight:700; }
+  .num{ fill:var(--ink); font-size:24px; font-weight:700; }
+  .lbl-bad{ fill:#8a1f1f; font-size:21px; font-weight:700; }
+  .lbl-good{ fill:#1f6b2e; font-size:21px; font-weight:700; }
+</style>
+</head>
+<body>
+
+<!-- shared SVG defs: hand-drawn wobble filter + arrowhead -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <filter id="rough" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="2" seed="7" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="2.6" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <marker id="ah" markerWidth="14" markerHeight="14" refX="8" refY="5" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L10,5 L0,10" fill="none" stroke="#1e1e1e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="ahg" markerWidth="14" markerHeight="14" refX="8" refY="5" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L10,5 L0,10" fill="none" stroke="#757575" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+</svg>
+
+<div class="reveal"><div class="slides">
+
+<!-- ============ SLIDE 1 — THE FEAR ============ -->
+<section data-auto-animate>
+  <p class="kicker">AOH &nbsp;·&nbsp; SAFE, READ-ONLY AGENTS</p>
+  <h2 class="t" style="font-size:2.1em">An agent with <code>kubectl delete</code></h2>
+  <p class="s" style="font-size:1.1em">The fear every ops team has before letting an agent near a real cluster.</p>
+  <svg viewBox="0 0 1100 340" role="img" aria-label="A robot agent holding a terminal about to run kubectl delete against a cluster">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.6">
+      <rect x="120" y="90" width="130" height="130" rx="16"/>
+      <circle cx="160" cy="130" r="8"/>
+      <circle cx="210" cy="130" r="8"/>
+      <line x1="150" y1="165" x2="220" y2="165"/>
+    </g>
+    <text x="185" y="250" text-anchor="middle" class="lbl-sm">agent</text>
+
+    <g filter="url(#rough)" fill="none" stroke="#8a1f1f" stroke-width="2.4">
+      <rect x="350" y="110" width="320" height="90" rx="8"/>
+    </g>
+    <text x="510" y="163" text-anchor="middle" class="lbl-bad" style="font-family:'Courier New',monospace;font-size:22px">kubectl delete pod --all</text>
+
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.2" stroke-linecap="round">
+      <path d="M675,155 L800,155" marker-end="url(#ah)"/>
+    </g>
+
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.8">
+      <ellipse cx="950" cy="155" rx="110" ry="70"/>
+      <path d="M870,140 C920,120 980,120 1030,140"/>
+    </g>
+    <text x="950" y="163" text-anchor="middle" class="lbl-sm">cluster</text>
+  </svg>
+  <p class="credit"><b>Gourav Shah</b> &nbsp;·&nbsp; Initcron AI / OpsFlow LLC / School of DevOps</p>
+  <div class="pageno">01</div>
+</section>
+
+<!-- ============ SLIDE 2 — DECLARED INTENT ============ -->
+<section>
+  <h2 class="t">Declared intent: kubectl-readonly</h2>
+  <p class="s">A pack declares a RuntimeRequirement — not a prompt instruction, a spec field.</p>
+  <svg viewBox="0 0 1100 320" role="img" aria-label="A pack manifest with a runtime requirement field set to kubectl-readonly">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.6">
+      <rect x="260" y="50" width="580" height="220" rx="14"/>
+    </g>
+    <text x="550" y="85" text-anchor="middle" class="lbl-g">RuntimeRequirement</text>
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2">
+      <rect x="300" y="110" width="500" height="120" rx="8"/>
+    </g>
+    <text x="550" y="155" text-anchor="middle" class="lbl-sm" style="font-family:'Courier New',monospace">kind: RuntimeRequirement</text>
+    <text x="550" y="185" text-anchor="middle" class="lbl-b" style="font-family:'Courier New',monospace">spec.capability: kubectl-readonly</text>
+    <text x="550" y="215" text-anchor="middle" class="lbl-g">get / list / watch only</text>
+  </svg>
+  <p class="takeaway">Intent is declared once, in the pack — the adapter is what turns declared intent into an enforced guardrail.</p>
+  <div class="pageno">02</div>
+</section>
+
+<!-- ============ SLIDE 3 — MATERIALIZED AS RBAC ============ -->
+<section>
+  <h2 class="t">Materialized as an RBAC identity</h2>
+  <p class="s">The Hermes adapter provisions a dedicated ServiceAccount and ClusterRole.</p>
+  <svg viewBox="0 0 1100 340" role="img" aria-label="RuntimeRequirement compiles through the adapter into a ServiceAccount bound to a ClusterRole scoped to get list watch">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.4">
+      <rect x="40" y="120" width="220" height="80" rx="8"/>
+    </g>
+    <text x="150" y="165" text-anchor="middle" class="lbl-sm">kubectl-readonly</text>
+
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.2" stroke-linecap="round">
+      <path d="M265,160 L375,160" marker-end="url(#ah)"/>
+    </g>
+    <text x="320" y="145" text-anchor="middle" class="lbl-g">adapter</text>
+
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.6">
+      <rect x="390" y="60" width="330" height="100" rx="10"/>
+      <rect x="390" y="200" width="330" height="100" rx="10"/>
+      <line x1="555" y1="160" x2="555" y2="200"/>
+    </g>
+    <text x="555" y="100" text-anchor="middle" class="lbl-b">ServiceAccount</text>
+    <text x="555" y="130" text-anchor="middle" class="lbl-g">aoh-kubeops-sresquad</text>
+    <text x="555" y="240" text-anchor="middle" class="lbl-b">ClusterRole</text>
+    <text x="555" y="270" text-anchor="middle" class="lbl-g">get / list / watch — everything</text>
+
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.2" stroke-linecap="round">
+      <path d="M745,160 L860,160" marker-end="url(#ah)"/>
+    </g>
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.4">
+      <rect x="870" y="115" width="180" height="90" rx="8"/>
+    </g>
+    <text x="960" y="150" text-anchor="middle" class="lbl-sm">scoped</text>
+    <text x="960" y="178" text-anchor="middle" class="lbl-sm">kubeconfig</text>
+  </svg>
+  <p class="takeaway">A human runs provision.sh once. AOH never touches the cluster itself — it only generates the script.</p>
+  <div class="pageno">03</div>
+</section>
+
+<!-- ============ SLIDE 4 — THE WALL ============ -->
+<section>
+  <h2 class="t">The wall: the API server denies</h2>
+  <p class="s">Same identity, same kubeconfig — one request allowed, one refused.</p>
+  <svg viewBox="0 0 1100 360" role="img" aria-label="An agent sends a get request that succeeds and a delete request that the API server rejects with 403 Forbidden">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.4">
+      <rect x="60" y="130" width="200" height="80" rx="10"/>
+    </g>
+    <text x="160" y="175" text-anchor="middle" class="lbl-sm">Agent</text>
+
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.2" stroke-linecap="round">
+      <path d="M265,150 L490,80" marker-end="url(#ah)"/>
+      <path d="M265,190 L490,260" marker-end="url(#ah)"/>
+    </g>
+    <text x="360" y="100" text-anchor="middle" class="lbl-g" style="font-family:'Courier New',monospace;font-size:16px">get pods -A</text>
+    <text x="360" y="300" text-anchor="middle" class="lbl-g" style="font-family:'Courier New',monospace;font-size:16px">delete pod --all</text>
+
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.8">
+      <rect x="500" y="120" width="220" height="120" rx="12"/>
+    </g>
+    <text x="610" y="185" text-anchor="middle" class="lbl-b">API server</text>
+
+    <g filter="url(#rough)" fill="none" stroke="#1f6b2e" stroke-width="2.2" stroke-linecap="round">
+      <path d="M725,90 L900,90" marker-end="url(#ah)"/>
+    </g>
+    <text x="815" y="75" text-anchor="middle" class="lbl-good" style="font-size:18px">200 OK</text>
+
+    <g filter="url(#rough)" fill="none" stroke="#8a1f1f" stroke-width="2.4" stroke-linecap="round">
+      <path d="M725,260 L900,260" marker-end="url(#ah)"/>
+    </g>
+    <text x="815" y="245" text-anchor="middle" class="lbl-bad" style="font-size:18px">403 Forbidden</text>
+  </svg>
+  <p class="takeaway">Not because the agent second-guessed itself — the API server checked the ServiceAccount's RBAC and refused.</p>
+  <div class="pageno">04</div>
+</section>
+
+<!-- ============ SLIDE 5 — SEPARATE IDENTITY ============ -->
+<section>
+  <h2 class="t">A separate identity, not a filtered prompt</h2>
+  <p class="s">Distinct from any human operator's credentials — so the audit log tells them apart.</p>
+  <svg viewBox="0 0 1100 340" role="img" aria-label="Two separate identities, human operator and agent service account, both logged separately in an audit trail">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.4">
+      <circle cx="220" cy="120" r="42"/>
+      <path d="M150,260 C150,190 290,190 290,260 L290,280 L150,280 Z"/>
+    </g>
+    <text x="220" y="315" text-anchor="middle" class="lbl-sm">you (kubectl)</text>
+
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.4">
+      <rect x="780" y="90" width="120" height="120" rx="14"/>
+      <circle cx="815" cy="125" r="7"/>
+      <circle cx="865" cy="125" r="7"/>
+    </g>
+    <text x="840" y="235" text-anchor="middle" class="lbl-sm">agent SA</text>
+
+    <g filter="url(#rough)" fill="none" stroke="#757575" stroke-width="2" stroke-linecap="round">
+      <path d="M290,190 L480,150" marker-end="url(#ahg)"/>
+      <path d="M780,170 L600,150" marker-end="url(#ahg)"/>
+    </g>
+
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.6">
+      <rect x="480" y="100" width="160" height="200" rx="8"/>
+    </g>
+    <text x="560" y="130" text-anchor="middle" class="lbl-g">audit log</text>
+    <g stroke="#1e1e1e" stroke-width="1.4" filter="url(#rough)">
+      <line x1="500" y1="160" x2="620" y2="160"/>
+      <line x1="500" y1="185" x2="620" y2="185"/>
+      <line x1="500" y1="210" x2="620" y2="210"/>
+      <line x1="500" y1="235" x2="620" y2="235"/>
+    </g>
+  </svg>
+  <p class="takeaway">Every action the agent takes is logged under its own identity — distinguishable from anything a human did directly.</p>
+  <div class="pageno">05</div>
+</section>
+
+<!-- ============ SLIDE 6 — HONESTY ============ -->
+<section>
+  <h2 class="t">Honest limit: read-only is not read-nothing</h2>
+  <p class="s">get/list/watch on everything includes every Secret in the cluster.</p>
+  <svg viewBox="0 0 1100 320" role="img" aria-label="A ClusterRole box scoped to get list watch on star, with a warning pointing at Secrets inside it">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.6">
+      <rect x="230" y="60" width="640" height="220" rx="14"/>
+    </g>
+    <text x="550" y="95" text-anchor="middle" class="lbl-g">ClusterRole — get/list/watch on *</text>
+
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2">
+      <rect x="270" y="120" width="180" height="60" rx="6"/>
+      <rect x="470" y="120" width="180" height="60" rx="6"/>
+      <rect x="670" y="120" width="180" height="60" rx="6"/>
+    </g>
+    <text x="360" y="155" text-anchor="middle" class="lbl-sm">Pods</text>
+    <text x="560" y="155" text-anchor="middle" class="lbl-sm">Nodes</text>
+    <text x="760" y="155" text-anchor="middle" class="lbl-bad">Secrets</text>
+
+    <g filter="url(#rough)" fill="none" stroke="#8a1f1f" stroke-width="2" stroke-dasharray="6 5">
+      <rect x="668" y="115" width="184" height="70" rx="6"/>
+    </g>
+    <text x="760" y="230" text-anchor="middle" class="lbl-bad" style="font-size:18px">fine for kind demo, not production</text>
+  </svg>
+  <p class="takeaway">Production bindings should tighten the role — an aggregated view role plus explicit resources, excluding secrets.</p>
+  <div class="pageno">06</div>
+</section>
+
+<!-- ============ SLIDE 7 — THE DEMO ============ -->
+<section>
+  <h2 class="t">The demo — live and unscripted</h2>
+  <p class="s">kind-sresquad-demo cluster · scoped kubeconfig · a real kubectl delete.</p>
+  <svg viewBox="0 0 1100 320" role="img" aria-label="A terminal running kubectl delete with the scoped kubeconfig, returning Forbidden">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.6">
+      <rect x="110" y="50" width="880" height="230" rx="12"/>
+      <line x1="110" y1="98" x2="990" y2="98"/>
+      <circle cx="145" cy="74" r="9"/>
+      <circle cx="175" cy="74" r="9"/>
+      <circle cx="205" cy="74" r="9"/>
+    </g>
+    <text x="145" y="140" text-anchor="start" class="lbl-sm" style="font-family:'Courier New',monospace">$ kubectl --kubeconfig $KC get pods -A</text>
+    <text x="145" y="170" text-anchor="start" class="lbl-good" style="font-family:'Courier New',monospace;font-size:18px">→ works</text>
+    <text x="145" y="215" text-anchor="start" class="lbl-sm" style="font-family:'Courier New',monospace">$ kubectl --kubeconfig $KC delete pod -n kube-system --all</text>
+    <text x="145" y="245" text-anchor="start" class="lbl-bad" style="font-family:'Courier New',monospace;font-size:18px">→ Error from server (Forbidden)</text>
+  </svg>
+  <p class="takeaway">No agent involved in this proof — just the same guardrail, checked directly against the cluster.</p>
+  <p class="credit"><b>Gourav Shah</b> &nbsp;·&nbsp; Initcron AI / OpsFlow LLC / School of DevOps</p>
+  <div class="pageno">07</div>
+</section>
+
+</div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/reveal.min.js"></script>
+<script>
+  Reveal.initialize({
+    width: 1280,
+    height: 720,
+    margin: 0.04,
+    minScale: 0.2,
+    maxScale: 2.0,
+    hash: true,
+    center: false,
+    slideNumber: false,
+    transition: 'slide',
+    controlsTutorial: true
+  });
+</script>
+<script>
+  // Autofit: if a slide's content overflows (long titles/takeaways wrapping to
+  // two lines), shrink its diagram until everything fits. Measures the real
+  // rendered heights, so it holds across browsers, fonts, and zoom levels.
+  (function(){
+    function fit(sec){
+      if(!sec) return;
+      var svg = sec.querySelector('svg');
+      if(!svg) return;
+      var mh = 58;
+      svg.style.maxHeight = mh + '%';
+      var guard = 0;
+      while (sec.scrollHeight > sec.clientHeight + 2 && mh > 18 && guard++ < 20){
+        mh -= 3;
+        svg.style.maxHeight = mh + '%';
+      }
+    }
+    Reveal.on('ready', function(e){ fit(e.currentSlide); });
+    Reveal.on('slidechanged', function(e){ fit(e.currentSlide); });
+    window.addEventListener('resize', function(){ fit(Reveal.getCurrentSlide()); });
+  })();
+</script>
+</body>
+</html>

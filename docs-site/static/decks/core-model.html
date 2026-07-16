@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The AOH Core Model</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/reveal.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/theme/white.min.css" id="theme">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap">
+
+<style>
+  :root{
+    --ink:#1e1e1e;
+    --gray:#757575;
+    --paper:#ffffff;
+  }
+  .reveal{ font-family:'Patrick Hand', cursive; color:var(--ink); }
+  .reveal .slides{ text-align:center; }
+  .reveal .slides section{ position:absolute; inset:0; box-sizing:border-box; flex-direction:column; justify-content:center; padding:20px 48px 42px; overflow:hidden; }
+  .reveal .slides > section.present{ display:flex; }
+
+  .reveal h1,.reveal h2,.reveal h3{
+    font-family:'Patrick Hand', cursive;
+    color:var(--ink);
+    text-transform:none;
+    font-weight:700;
+    letter-spacing:0;
+    margin:0 0 6px 0;
+    line-height:1.15;
+  }
+  .reveal h2.t{ font-size:1.75em; }
+  .reveal p.s{ font-size:0.95em; color:var(--gray); margin:0 0 8px 0; }
+  .reveal p.takeaway{
+    font-size:0.92em; color:var(--gray);
+    margin:10px auto 0; max-width:1050px;
+  }
+  .reveal p.takeaway::before{ content:"\2192  "; color:var(--ink); font-weight:700; }
+  .reveal svg{ width:100%; flex:1 1 0; min-height:0; max-height:58%; display:block; margin:8px auto 0; }
+  .reveal .kicker{ font-size:.8em; color:var(--gray); letter-spacing:2px; }
+  .reveal .credit{ font-size:.85em; color:var(--gray); margin-top:16px; }
+  .reveal .credit b{ color:var(--ink); font-weight:700; }
+  .reveal .pageno{ position:absolute; bottom:14px; right:22px; font-size:.6em; color:#bdbdbd; }
+  .reveal .slide-number{ font-family:'Patrick Hand',cursive; }
+
+  /* SVG typographic helpers */
+  text{ font-family:'Patrick Hand', cursive; }
+  .lbl{ fill:var(--ink); font-size:21px; }
+  .lbl-sm{ fill:var(--ink); font-size:17px; }
+  .lbl-g{ fill:var(--gray); font-size:17px; }
+  .lbl-b{ fill:var(--ink); font-size:23px; font-weight:700; }
+  .num{ fill:var(--ink); font-size:24px; font-weight:700; }
+</style>
+</head>
+<body>
+
+<!-- shared SVG defs: hand-drawn wobble filter + arrowhead -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <filter id="rough" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="2" seed="7" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="2.6" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <marker id="ah" markerWidth="14" markerHeight="14" refX="8" refY="5" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L10,5 L0,10" fill="none" stroke="#1e1e1e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="ahg" markerWidth="14" markerHeight="14" refX="8" refY="5" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L10,5 L0,10" fill="none" stroke="#757575" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+</svg>
+
+<div class="reveal"><div class="slides">
+
+<!-- ============ SLIDE 1 — TITLE ============ -->
+<section data-auto-animate>
+  <p class="kicker">AOH &nbsp;·&nbsp; SPEC FUNDAMENTALS</p>
+  <h2 class="t" style="font-size:2.3em">The Core Model</h2>
+  <p class="s" style="font-size:1.2em">Five nouns. Name them and the rest is detail.</p>
+  <svg viewBox="0 0 1100 340" role="img" aria-label="Five simple glyphs in a row representing pack, skill, role, binding, adapter">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.6">
+      <rect x="70"  y="110" width="150" height="120" rx="10"/>
+      <rect x="270" y="100" width="120" height="140" rx="60"/>
+      <circle cx="580" cy="150" r="30"/>
+      <path d="M540,240 C540,190 620,190 620,240 Z"/>
+      <path d="M780,110 L920,110 L920,230 L850,230 L850,260 L820,230 L780,230 Z"/>
+      <circle cx="1000" cy="170" r="20"/>
+    </g>
+    <text x="145" y="290" text-anchor="middle" class="lbl-sm">Pack</text>
+    <text x="330" y="290" text-anchor="middle" class="lbl-sm">Skill</text>
+    <text x="580" y="290" text-anchor="middle" class="lbl-sm">Role</text>
+    <text x="850" y="290" text-anchor="middle" class="lbl-sm">Binding</text>
+    <text x="1000" y="290" text-anchor="middle" class="lbl-sm">Adapter</text>
+  </svg>
+  <p class="credit"><b>Gourav Shah</b> &nbsp;·&nbsp; Initcron AI / OpsFlow LLC / School of DevOps</p>
+  <div class="pageno">01</div>
+</section>
+
+<!-- ============ SLIDE 2 — PACK ============ -->
+<section>
+  <h2 class="t">Pack — the distribution unit</h2>
+  <p class="s">A directory with an AOH.yaml manifest and at least one skill.</p>
+  <svg viewBox="0 0 1100 340" role="img" aria-label="A box labeled pack containing a manifest and a skill">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.8">
+      <rect x="330" y="60" width="440" height="250" rx="14"/>
+      <path d="M330,120 L500,120 L530,60" />
+    </g>
+    <text x="550" y="95" text-anchor="middle" class="lbl-g">pack/</text>
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2">
+      <rect x="370" y="150" width="150" height="60" rx="6"/>
+      <rect x="560" y="150" width="150" height="60" rx="6"/>
+    </g>
+    <text x="445" y="185" text-anchor="middle" class="lbl-sm">AOH.yaml</text>
+    <text x="635" y="185" text-anchor="middle" class="lbl-sm">skills/</text>
+    <text x="550" y="260" text-anchor="middle" class="lbl-g">this is the thing you version, share, and install</text>
+  </svg>
+  <p class="takeaway">Minimum viable pack: AOH.yaml plus one skill — that's a complete, installable unit.</p>
+  <div class="pageno">02</div>
+</section>
+
+<!-- ============ SLIDE 3 — SKILL ============ -->
+<section>
+  <h2 class="t">Skill — the capability</h2>
+  <p class="s">SKILL.md plus optional scripts, references, and assets — the agentskills format.</p>
+  <svg viewBox="0 0 1100 340" role="img" aria-label="A scroll representing a skill, unrolled to show instructions and a script">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.6">
+      <rect x="380" y="80" width="340" height="200" rx="6"/>
+      <ellipse cx="380" cy="80" rx="18" ry="10"/>
+      <ellipse cx="720" cy="80" rx="18" ry="10"/>
+      <ellipse cx="380" cy="280" rx="18" ry="10"/>
+      <ellipse cx="720" cy="280" rx="18" ry="10"/>
+    </g>
+    <text x="550" y="120" text-anchor="middle" class="lbl-b">SKILL.md</text>
+    <g stroke="#1e1e1e" stroke-width="1.6" filter="url(#rough)">
+      <line x1="420" y1="150" x2="680" y2="150"/>
+      <line x1="420" y1="175" x2="680" y2="175"/>
+      <line x1="420" y1="200" x2="620" y2="200"/>
+    </g>
+    <text x="550" y="245" text-anchor="middle" class="lbl-g">+ scripts/  ·  references/  ·  assets/</text>
+  </svg>
+  <p class="takeaway">A <em>process skill</em> is just a plain skill whose body orchestrates other skills by name — no separate "workflow" kind.</p>
+  <div class="pageno">03</div>
+</section>
+
+<!-- ============ SLIDE 4 — ROLE ============ -->
+<section>
+  <h2 class="t">Role — the WHO</h2>
+  <p class="s">A job function that bundles the skills, model profile, and runtime requirements it needs.</p>
+  <svg viewBox="0 0 1100 340" role="img" aria-label="A person glyph representing a role, with three items bundled below it">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.8">
+      <circle cx="550" cy="90" r="40"/>
+      <path d="M470,240 C470,170 630,170 630,240 L630,260 L470,260 Z"/>
+    </g>
+    <text x="550" y="300" text-anchor="middle" class="lbl-b">sre-platform</text>
+    <g filter="url(#rough)" fill="none" stroke="#757575" stroke-width="2" stroke-linecap="round">
+      <path d="M470,260 L250,180" marker-end="url(#ahg)"/>
+      <path d="M550,260 L550,180" marker-end="url(#ahg)"/>
+      <path d="M630,260 L850,180" marker-end="url(#ahg)"/>
+    </g>
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2">
+      <rect x="130" y="110" width="220" height="60" rx="8"/>
+      <rect x="440" y="110" width="220" height="60" rx="8"/>
+      <rect x="740" y="110" width="220" height="60" rx="8"/>
+    </g>
+    <text x="240" y="145" text-anchor="middle" class="lbl-sm">skills</text>
+    <text x="550" y="145" text-anchor="middle" class="lbl-sm">model profile</text>
+    <text x="850" y="145" text-anchor="middle" class="lbl-sm">runtime requirement</text>
+  </svg>
+  <p class="takeaway">Examples: sre-platform, devops-automation, mlops-training — a job function, not a person.</p>
+  <div class="pageno">04</div>
+</section>
+
+<!-- ============ SLIDE 5 — BINDING ============ -->
+<section>
+  <h2 class="t">Binding — the WHERE</h2>
+  <p class="s">A role bound to a target: cluster, environment, or account. Lives outside the pack.</p>
+  <svg viewBox="0 0 1100 340" role="img" aria-label="A map pin dropping onto a target cluster, connected back to a role box">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.8">
+      <rect x="120" y="120" width="220" height="90" rx="10"/>
+    </g>
+    <text x="230" y="172" text-anchor="middle" class="lbl">Role</text>
+
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.2" stroke-linecap="round">
+      <path d="M345,165 L520,165" marker-end="url(#ah)"/>
+    </g>
+    <text x="430" y="150" text-anchor="middle" class="lbl-g">bound to</text>
+
+    <!-- map pin -->
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.8">
+      <path d="M700,80 C650,80 620,120 620,160 C620,210 700,270 700,270 C700,270 780,210 780,160 C780,120 750,80 700,80 Z"/>
+      <circle cx="700" cy="155" r="24"/>
+    </g>
+    <text x="700" y="310" text-anchor="middle" class="lbl-sm">cluster / env / account</text>
+
+    <text x="900" y="165" text-anchor="middle" class="lbl-g">site-specific,</text>
+    <text x="900" y="195" text-anchor="middle" class="lbl-g">separate repo</text>
+  </svg>
+  <p class="takeaway">Same split Ansible draws between reusable roles and private inventory — the pack stays portable.</p>
+  <div class="pageno">05</div>
+</section>
+
+<!-- ============ SLIDE 6 — ADAPTER ============ -->
+<section>
+  <h2 class="t">Adapter — compiles pack + binding to runtime</h2>
+  <p class="s">All runtime-specific knowledge lives here — never in the pack spec itself.</p>
+  <svg viewBox="0 0 1100 320" role="img" aria-label="A plug labeled adapter connecting a pack and binding to a runtime profile">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.4">
+      <rect x="60" y="60" width="220" height="70" rx="8"/>
+      <rect x="60" y="180" width="220" height="70" rx="8"/>
+    </g>
+    <text x="170" y="102" text-anchor="middle" class="lbl-sm">Pack</text>
+    <text x="170" y="222" text-anchor="middle" class="lbl-sm">Binding</text>
+
+    <g filter="url(#rough)" fill="none" stroke="#757575" stroke-width="2" stroke-linecap="round">
+      <path d="M285,95 L420,150" marker-end="url(#ahg)"/>
+      <path d="M285,215 L420,160" marker-end="url(#ahg)"/>
+    </g>
+
+    <!-- plug shape -->
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="3">
+      <rect x="430" y="115" width="160" height="90" rx="12"/>
+      <line x1="465" y1="115" x2="465" y2="90"/>
+      <line x1="555" y1="115" x2="555" y2="90"/>
+    </g>
+    <text x="510" y="167" text-anchor="middle" class="lbl-sm">adapter</text>
+
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.4" stroke-linecap="round">
+      <path d="M595,160 L720,160" marker-end="url(#ah)"/>
+    </g>
+
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.6">
+      <rect x="730" y="90" width="320" height="140" rx="10"/>
+    </g>
+    <text x="890" y="150" text-anchor="middle" class="lbl-b">Hermes profile</text>
+    <text x="890" y="185" text-anchor="middle" class="lbl-g">the only one built today</text>
+  </svg>
+  <p class="takeaway">Hermes today; Claude Code, Codex, and Goose adapters are next on the roadmap.</p>
+  <div class="pageno">06</div>
+</section>
+
+<!-- ============ SLIDE 7 — COMPOSITION ============ -->
+<section>
+  <h2 class="t">How it composes</h2>
+  <p class="s">A team groups roles; a role pulls together everything it needs.</p>
+  <svg viewBox="0 0 1100 380" role="img" aria-label="Team contains Role, which pulls in Skills, ModelProfile, RuntimeRequirement, and Eval, then flows into Binding and Adapter">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.4">
+      <rect x="430" y="30" width="220" height="60" rx="8"/>
+      <rect x="430" y="130" width="220" height="60" rx="8"/>
+    </g>
+    <text x="540" y="65" text-anchor="middle" class="lbl-sm">Team</text>
+    <text x="540" y="165" text-anchor="middle" class="lbl-b">Role</text>
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linecap="round">
+      <path d="M540,90 L540,125" marker-end="url(#ah)"/>
+    </g>
+
+    <g filter="url(#rough)" fill="none" stroke="#757575" stroke-width="1.8" stroke-linecap="round">
+      <path d="M470,190 L150,240" marker-end="url(#ahg)"/>
+      <path d="M510,190 L400,240" marker-end="url(#ahg)"/>
+      <path d="M570,190 L680,240" marker-end="url(#ahg)"/>
+      <path d="M610,190 L930,240" marker-end="url(#ahg)"/>
+    </g>
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2">
+      <rect x="60"  y="250" width="180" height="55" rx="8"/>
+      <rect x="310" y="250" width="180" height="55" rx="8"/>
+      <rect x="590" y="250" width="180" height="55" rx="8"/>
+      <rect x="840" y="250" width="180" height="55" rx="8"/>
+    </g>
+    <text x="150" y="283" text-anchor="middle" class="lbl-sm">Skills</text>
+    <text x="400" y="283" text-anchor="middle" class="lbl-sm">ModelProfile</text>
+    <text x="680" y="283" text-anchor="middle" class="lbl-sm">RuntimeReq.</text>
+    <text x="930" y="283" text-anchor="middle" class="lbl-sm">Eval</text>
+
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linecap="round">
+      <path d="M540,190 L540,340" marker-end="url(#ah)"/>
+    </g>
+    <text x="620" y="330" text-anchor="middle" class="lbl-g">→ Binding → Adapter → runtime profile</text>
+  </svg>
+  <p class="takeaway">Bind a role to a target, run it through an adapter, get a generated, disposable runtime profile.</p>
+  <div class="pageno">07</div>
+</section>
+
+<!-- ============ SLIDE 8 — PROGRESSIVE DISCLOSURE ============ -->
+<section>
+  <h2 class="t">Progressive disclosure — four layers</h2>
+  <p class="s">Only the first two are mandatory. The org model is opt-in.</p>
+  <svg viewBox="0 0 1100 380" role="img" aria-label="Four nested layers from skills at the core to bindings at the outside">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.2">
+      <rect x="60"  y="40"  width="980" height="80" rx="10"/>
+      <rect x="60"  y="130" width="980" height="80" rx="10"/>
+      <rect x="60"  y="220" width="980" height="80" rx="10"/>
+      <rect x="60"  y="310" width="980" height="55" rx="10"/>
+    </g>
+    <g class="lbl-sm" text-anchor="start">
+      <text x="90" y="75">Layer 0 — skills/</text>
+      <text x="90" y="98" class="lbl-g">pure agentskills format, zero AOH involvement</text>
+      <text x="90" y="165">Layer 1 — AOH.yaml</text>
+      <text x="90" y="188" class="lbl-g">the pack manifest — mandatory, this + one skill is installable</text>
+      <text x="90" y="255">Layer 2 — roles/ teams/ models/ evals/ runtime-requirements/</text>
+      <text x="90" y="278" class="lbl-g">the org layer — entirely opt-in</text>
+      <text x="90" y="342">Layer 3 — Bindings — role × target, opt-in, separate repo</text>
+    </g>
+  </svg>
+  <p class="takeaway">Minimum viable pack: AOH.yaml + one skill. Five minutes to value — the org model is something you grow into.</p>
+  <div class="pageno">08</div>
+</section>
+
+<!-- ============ SLIDE 9 — CLOSING ============ -->
+<section>
+  <p class="kicker">FIVE NOUNS, ONE MODEL</p>
+  <h2 class="t" style="font-size:2.2em">Pack · Skill · Role · Binding · Adapter</h2>
+  <svg viewBox="0 0 1100 300" role="img" aria-label="The five glyphs from the title slide arranged again with a checkmark">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.6">
+      <rect x="70"  y="90" width="140" height="110" rx="10"/>
+      <rect x="260" y="80" width="110" height="130" rx="55"/>
+      <circle cx="530" cy="135" r="28"/>
+      <path d="M495,215 C495,170 565,170 565,215 Z"/>
+      <path d="M700,90 L820,90 L820,200 L760,200 L760,225 L735,200 L700,200 Z"/>
+      <circle cx="900" cy="145" r="18"/>
+    </g>
+    <text x="140" y="235" text-anchor="middle" class="lbl-sm">Pack</text>
+    <text x="315" y="235" text-anchor="middle" class="lbl-sm">Skill</text>
+    <text x="530" y="235" text-anchor="middle" class="lbl-sm">Role</text>
+    <text x="760" y="255" text-anchor="middle" class="lbl-sm">Binding</text>
+    <text x="900" y="235" text-anchor="middle" class="lbl-sm">Adapter</text>
+  </svg>
+  <p class="s" style="font-size:1.1em">Name them, and the rest of the spec is just detail.</p>
+  <p class="credit">Next: <b>Engine-Neutral by Design</b> &nbsp;·&nbsp; Gourav Shah · Initcron AI / OpsFlow LLC / School of DevOps</p>
+  <div class="pageno">09</div>
+</section>
+
+</div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/reveal.min.js"></script>
+<script>
+  Reveal.initialize({
+    width: 1280,
+    height: 720,
+    margin: 0.04,
+    minScale: 0.2,
+    maxScale: 2.0,
+    hash: true,
+    center: false,
+    slideNumber: false,
+    transition: 'slide',
+    controlsTutorial: true
+  });
+</script>
+<script>
+  // Autofit: if a slide's content overflows (long titles/takeaways wrapping to
+  // two lines), shrink its diagram until everything fits. Measures the real
+  // rendered heights, so it holds across browsers, fonts, and zoom levels.
+  (function(){
+    function fit(sec){
+      if(!sec) return;
+      var svg = sec.querySelector('svg');
+      if(!svg) return;
+      var mh = 58;
+      svg.style.maxHeight = mh + '%';
+      var guard = 0;
+      while (sec.scrollHeight > sec.clientHeight + 2 && mh > 18 && guard++ < 20){
+        mh -= 3;
+        svg.style.maxHeight = mh + '%';
+      }
+    }
+    Reveal.on('ready', function(e){ fit(e.currentSlide); });
+    Reveal.on('slidechanged', function(e){ fit(e.currentSlide); });
+    window.addEventListener('resize', function(){ fit(Reveal.getCurrentSlide()); });
+  })();
+</script>
+</body>
+</html>

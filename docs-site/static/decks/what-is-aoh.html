@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>What is AOH?</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/reveal.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/theme/white.min.css" id="theme">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap">
+
+<style>
+  :root{
+    --ink:#1e1e1e;
+    --gray:#757575;
+    --paper:#ffffff;
+  }
+  .reveal{ font-family:'Patrick Hand', cursive; color:var(--ink); }
+  .reveal .slides{ text-align:center; }
+  .reveal .slides section{ position:absolute; inset:0; box-sizing:border-box; flex-direction:column; justify-content:center; padding:20px 48px 42px; overflow:hidden; }
+  .reveal .slides > section.present{ display:flex; }
+
+  .reveal h1,.reveal h2,.reveal h3{
+    font-family:'Patrick Hand', cursive;
+    color:var(--ink);
+    text-transform:none;
+    font-weight:700;
+    letter-spacing:0;
+    margin:0 0 6px 0;
+    line-height:1.15;
+  }
+  .reveal h2.t{ font-size:1.75em; }
+  .reveal p.s{ font-size:0.95em; color:var(--gray); margin:0 0 8px 0; }
+  .reveal p.takeaway{
+    font-size:0.92em; color:var(--gray);
+    margin:10px auto 0; max-width:1050px;
+  }
+  .reveal p.takeaway::before{ content:"\2192  "; color:var(--ink); font-weight:700; }
+  .reveal svg{ width:100%; flex:1 1 0; min-height:0; max-height:58%; display:block; margin:8px auto 0; }
+  .reveal .kicker{ font-size:.8em; color:var(--gray); letter-spacing:2px; }
+  .reveal .credit{ font-size:.85em; color:var(--gray); margin-top:16px; }
+  .reveal .credit b{ color:var(--ink); font-weight:700; }
+  .reveal .pageno{ position:absolute; bottom:14px; right:22px; font-size:.6em; color:#bdbdbd; }
+  .reveal .slide-number{ font-family:'Patrick Hand',cursive; }
+
+  /* SVG typographic helpers */
+  text{ font-family:'Patrick Hand', cursive; }
+  .lbl{ fill:var(--ink); font-size:21px; }
+  .lbl-sm{ fill:var(--ink); font-size:17px; }
+  .lbl-g{ fill:var(--gray); font-size:17px; }
+  .lbl-b{ fill:var(--ink); font-size:23px; font-weight:700; }
+  .num{ fill:var(--ink); font-size:24px; font-weight:700; }
+  code.mono{ font-family: 'Courier New', monospace; }
+</style>
+</head>
+<body>
+
+<!-- shared SVG defs: hand-drawn wobble filter + arrowhead -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <filter id="rough" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="2" seed="7" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="2.6" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <marker id="ah" markerWidth="14" markerHeight="14" refX="8" refY="5" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L10,5 L0,10" fill="none" stroke="#1e1e1e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="ahg" markerWidth="14" markerHeight="14" refX="8" refY="5" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L10,5 L0,10" fill="none" stroke="#757575" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+</svg>
+
+<div class="reveal"><div class="slides">
+
+<!-- ============ SLIDE 1 — TITLE ============ -->
+<section data-auto-animate>
+  <p class="kicker">AGENTIC OPS &nbsp;·&nbsp; ENGINE-NEUTRAL HARNESS</p>
+  <h2 class="t" style="font-size:2.3em">AOH: Agentic Ops Harness</h2>
+  <p class="s" style="font-size:1.2em">Superpowers for Ops</p>
+  <svg viewBox="0 0 1100 360" role="img" aria-label="A tool belt harness holding several skill pouches">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="3" stroke-linecap="round">
+      <path d="M260,120 C420,80 680,80 840,120" />
+      <circle cx="260" cy="120" r="10"/>
+      <circle cx="840" cy="120" r="10"/>
+      <rect x="330" y="140" width="110" height="120" rx="14"/>
+      <rect x="470" y="150" width="110" height="130" rx="14"/>
+      <rect x="610" y="140" width="110" height="120" rx="14"/>
+      <line x1="385" y1="140" x2="385" y2="120"/>
+      <line x1="525" y1="150" x2="525" y2="120"/>
+      <line x1="665" y1="140" x2="665" y2="120"/>
+    </g>
+    <text x="385" y="205" text-anchor="middle" class="lbl-sm">skill</text>
+    <text x="525" y="220" text-anchor="middle" class="lbl-sm">skill</text>
+    <text x="665" y="205" text-anchor="middle" class="lbl-sm">skill</text>
+    <text x="550" y="320" text-anchor="middle" class="lbl-g">a harness for the runbooks you already have</text>
+  </svg>
+  <p class="credit"><b>Gourav Shah</b> &nbsp;·&nbsp; Initcron AI / OpsFlow LLC / School of DevOps</p>
+  <div class="pageno">01</div>
+</section>
+
+<!-- ============ SLIDE 2 — THE PROBLEM ============ -->
+<section>
+  <h2 class="t">Three things break at scale</h2>
+  <p class="s">Not hypothetical — the exact way agentic ops rollouts stall today.</p>
+  <svg viewBox="0 0 1100 380" role="img" aria-label="A runbook trapped in a wiki, a cheap model with a question mark, and a config forked in three directions">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.4">
+      <rect x="60" y="60" width="290" height="280" rx="12"/>
+      <rect x="405" y="60" width="290" height="280" rx="12"/>
+      <rect x="750" y="60" width="290" height="280" rx="12"/>
+    </g>
+    <!-- wiki page -->
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2">
+      <rect x="130" y="110" width="150" height="110" rx="6"/>
+      <line x1="150" y1="135" x2="260" y2="135"/>
+      <line x1="150" y1="155" x2="260" y2="155"/>
+      <line x1="150" y1="175" x2="230" y2="175"/>
+    </g>
+    <text x="205" y="245" text-anchor="middle" class="lbl">Runbook</text>
+    <text x="205" y="270" text-anchor="middle" class="lbl-g">trapped in a wiki</text>
+
+    <!-- cheap model -->
+    <circle cx="550" cy="165" r="55" filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.4"/>
+    <text x="550" y="178" text-anchor="middle" class="lbl-b" style="font-size:34px">?</text>
+    <text x="550" y="245" text-anchor="middle" class="lbl">Cheap model</text>
+    <text x="550" y="270" text-anchor="middle" class="lbl-g">can't be trusted</text>
+
+    <!-- forked config -->
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.2" stroke-linecap="round">
+      <rect x="850" y="100" width="90" height="50" rx="8"/>
+      <path d="M895,150 L845,210" marker-end="url(#ah)"/>
+      <path d="M895,150 L895,210" marker-end="url(#ah)"/>
+      <path d="M895,150 L945,210" marker-end="url(#ah)"/>
+    </g>
+    <text x="895" y="130" text-anchor="middle" class="lbl-sm">config</text>
+    <text x="895" y="270" text-anchor="middle" class="lbl">copied &amp; forked</text>
+    <text x="895" y="295" text-anchor="middle" class="lbl-g">three times over</text>
+  </svg>
+  <p class="takeaway">A runbook no one can find, a model no one trusts unsupervised, an agent config copy-pasted per team.</p>
+  <div class="pageno">02</div>
+</section>
+
+<!-- ============ SLIDE 3 — THE IDEA ============ -->
+<section>
+  <h2 class="t">The idea: runbook &rarr; skill</h2>
+  <p class="s">A skill is instructions plus scripts plus an eval — not just prose.</p>
+  <svg viewBox="0 0 1100 340" role="img" aria-label="A runbook page transforms into a skill folder containing SKILL.md, scripts, and an eval">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.4">
+      <rect x="60" y="90" width="220" height="160" rx="10"/>
+    </g>
+    <g stroke="#1e1e1e" stroke-width="1.8" filter="url(#rough)">
+      <line x1="90" y1="120" x2="250" y2="120"/>
+      <line x1="90" y1="145" x2="250" y2="145"/>
+      <line x1="90" y1="170" x2="220" y2="170"/>
+    </g>
+    <text x="170" y="280" text-anchor="middle" class="lbl">runbook.md</text>
+
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.4" stroke-linecap="round">
+      <path d="M300,170 L440,170" marker-end="url(#ah)"/>
+    </g>
+    <text x="370" y="150" text-anchor="middle" class="lbl-g">becomes</text>
+
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.6">
+      <rect x="470" y="60" width="560" height="230" rx="14"/>
+      <rect x="500" y="100" width="150" height="60" rx="8"/>
+      <rect x="670" y="100" width="150" height="60" rx="8"/>
+      <rect x="840" y="100" width="150" height="60" rx="8"/>
+      <rect x="500" y="190" width="490" height="70" rx="8"/>
+    </g>
+    <text x="750" y="90" text-anchor="middle" class="lbl-g">skill/</text>
+    <text x="575" y="135" text-anchor="middle" class="lbl-sm">SKILL.md</text>
+    <text x="745" y="135" text-anchor="middle" class="lbl-sm">scripts/</text>
+    <text x="915" y="135" text-anchor="middle" class="lbl-sm">assets</text>
+    <text x="745" y="230" text-anchor="middle" class="lbl">eval — gates cheap-model trust</text>
+  </svg>
+  <p class="takeaway">Instructions, deterministic scripts, and an eval — versioned together, so trust travels with the skill.</p>
+  <div class="pageno">03</div>
+</section>
+
+<!-- ============ SLIDE 4 — ONE PACK, MANY RUNTIMES ============ -->
+<section>
+  <h2 class="t">One pack, many runtimes</h2>
+  <p class="s">Write the skill once. The adapter speaks each runtime's dialect.</p>
+  <svg viewBox="0 0 1100 360" role="img" aria-label="A pack compiles through an adapter layer into Hermes, Claude Code, Codex, and Goose">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.8">
+      <rect x="60" y="130" width="200" height="100" rx="12"/>
+    </g>
+    <text x="160" y="188" text-anchor="middle" class="lbl-b">Pack</text>
+
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.2" stroke-linecap="round">
+      <path d="M265,180 L365,180" marker-end="url(#ah)"/>
+    </g>
+
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.4" stroke-dasharray="7 5">
+      <rect x="375" y="120" width="150" height="120" rx="10"/>
+    </g>
+    <text x="450" y="185" text-anchor="middle" class="lbl">adapter</text>
+
+    <g filter="url(#rough)" fill="none" stroke="#757575" stroke-width="2" stroke-linecap="round">
+      <path d="M530,150 L680,80" marker-end="url(#ahg)"/>
+      <path d="M530,170 L680,170" marker-end="url(#ahg)"/>
+      <path d="M530,195 L680,270" marker-end="url(#ahg)"/>
+      <path d="M530,210 L680,340" marker-end="url(#ahg)"/>
+    </g>
+
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.2">
+      <rect x="690" y="50"  width="330" height="60" rx="8"/>
+      <rect x="690" y="140" width="330" height="60" rx="8"/>
+      <rect x="690" y="240" width="330" height="60" rx="8"/>
+      <rect x="690" y="330" width="330" height="60" rx="8"/>
+    </g>
+    <text x="855" y="86"  text-anchor="middle" class="lbl">Hermes — today</text>
+    <text x="855" y="176" text-anchor="middle" class="lbl-g">Claude Code — next</text>
+    <text x="855" y="276" text-anchor="middle" class="lbl-g">Codex — next</text>
+    <text x="855" y="366" text-anchor="middle" class="lbl-g">Goose — next</text>
+  </svg>
+  <p class="takeaway">Runtime knowledge lives only in the adapter — the pack spec never mentions a runtime by name.</p>
+  <div class="pageno">04</div>
+</section>
+
+<!-- ============ SLIDE 5 — ANSIBLE ANALOGY ============ -->
+<section>
+  <h2 class="t">If you know Ansible, you know this</h2>
+  <p class="s">Packs are roles. Bindings are inventory. Same split, ops-agent shaped.</p>
+  <svg viewBox="0 0 1100 340" role="img" aria-label="Ansible roles map to packs, inventory maps to bindings">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.6">
+      <rect x="60"  y="60"  width="440" height="100" rx="10"/>
+      <rect x="60"  y="200" width="440" height="100" rx="10"/>
+      <rect x="600" y="60"  width="440" height="100" rx="10"/>
+      <rect x="600" y="200" width="440" height="100" rx="10"/>
+    </g>
+    <text x="280" y="100" text-anchor="middle" class="lbl-g">Ansible</text>
+    <text x="280" y="135" text-anchor="middle" class="lbl-b">role</text>
+    <text x="280" y="240" text-anchor="middle" class="lbl-g">Ansible</text>
+    <text x="280" y="275" text-anchor="middle" class="lbl-b">inventory</text>
+
+    <text x="820" y="100" text-anchor="middle" class="lbl-g">AOH</text>
+    <text x="820" y="135" text-anchor="middle" class="lbl-b">pack</text>
+    <text x="820" y="240" text-anchor="middle" class="lbl-g">AOH</text>
+    <text x="820" y="275" text-anchor="middle" class="lbl-b">binding</text>
+
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.2" stroke-linecap="round">
+      <path d="M505,110 L595,110" marker-end="url(#ah)"/>
+      <path d="M505,250 L595,250" marker-end="url(#ah)"/>
+    </g>
+    <text x="550" y="95" text-anchor="middle" class="lbl-g">≈</text>
+    <text x="550" y="235" text-anchor="middle" class="lbl-g">≈</text>
+  </svg>
+  <p class="takeaway">One limit to the analogy: AOH organizes, packages, validates, and adapts — it never executes. Runtimes execute.</p>
+  <div class="pageno">05</div>
+</section>
+
+<!-- ============ SLIDE 6 — THE WEDGE ============ -->
+<section>
+  <h2 class="t">The wedge: cheap models you can trust</h2>
+  <p class="s">Frontier authors once. Cheap model executes many times. Evals are the gate.</p>
+  <svg viewBox="0 0 1100 360" role="img" aria-label="A frontier model authors a skill, a cheap model executes it repeatedly, and evals gate the handoff">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.6">
+      <rect x="60"  y="60"  width="260" height="110" rx="10"/>
+      <rect x="420" y="60"  width="260" height="110" rx="10"/>
+      <rect x="780" y="60"  width="260" height="110" rx="10"/>
+    </g>
+    <text x="190" y="105" text-anchor="middle" class="lbl">Frontier model</text>
+    <text x="190" y="135" text-anchor="middle" class="lbl-g">authors skill</text>
+    <text x="550" y="105" text-anchor="middle" class="lbl-b">eval</text>
+    <text x="550" y="135" text-anchor="middle" class="lbl-g">gates trust</text>
+    <text x="910" y="105" text-anchor="middle" class="lbl">Cheap / local</text>
+    <text x="910" y="135" text-anchor="middle" class="lbl-g">executes, repeatedly</text>
+
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.2" stroke-linecap="round">
+      <path d="M325,115 L415,115" marker-end="url(#ah)"/>
+      <path d="M685,115 L775,115" marker-end="url(#ah)"/>
+    </g>
+
+    <g filter="url(#rough)" fill="none" stroke="#757575" stroke-width="2" stroke-dasharray="6 6" stroke-linecap="round">
+      <path d="M910,175 C 700,260 400,260 240,175" marker-end="url(#ahg)"/>
+    </g>
+    <text x="580" y="290" text-anchor="middle" class="lbl-g">stuck? escalate back to a frontier unblocker</text>
+  </svg>
+  <p class="takeaway">Evals are what make handing an incident to a cheap model a defensible decision, not a gamble.</p>
+  <div class="pageno">06</div>
+</section>
+
+<!-- ============ SLIDE 7 — THE WALL ============ -->
+<section>
+  <h2 class="t">A wall between organizing and executing</h2>
+  <p class="s">AOH never touches your cluster, cloud account, or terminal. Runtimes do that.</p>
+  <svg viewBox="0 0 1100 340" role="img" aria-label="AOH organizes packages validates and adapts on one side of a wall, while runtimes execute on the other">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.6">
+      <rect x="60"  y="70"  width="430" height="220" rx="12"/>
+      <rect x="610" y="70"  width="430" height="220" rx="12"/>
+    </g>
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="4">
+      <line x1="550" y1="50" x2="550" y2="310"/>
+    </g>
+    <text x="275" y="105" text-anchor="middle" class="lbl-b">AOH</text>
+    <g class="lbl" text-anchor="middle">
+      <text x="275" y="150">organizes</text>
+      <text x="275" y="185">packages</text>
+      <text x="275" y="220">validates</text>
+      <text x="275" y="255">adapts</text>
+    </g>
+    <text x="825" y="105" text-anchor="middle" class="lbl-b">Runtimes</text>
+    <g class="lbl" text-anchor="middle">
+      <text x="825" y="180">execute</text>
+      <text x="825" y="215" class="lbl-g">(Hermes, Claude Code,</text>
+      <text x="825" y="245" class="lbl-g">Codex, Goose)</text>
+    </g>
+  </svg>
+  <p class="takeaway">The wall is deliberate: AOH stays engine-neutral by never crossing into execution itself.</p>
+  <div class="pageno">07</div>
+</section>
+
+<!-- ============ SLIDE 8 — TRY IT ============ -->
+<section>
+  <h2 class="t">Try it</h2>
+  <p class="s">One command validates a pack's referential integrity before anything ships.</p>
+  <svg viewBox="0 0 1100 320" role="img" aria-label="A terminal window running aoh validate against a pack directory, returning OK">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.6">
+      <rect x="130" y="50" width="840" height="220" rx="12"/>
+      <line x1="130" y1="98" x2="970" y2="98"/>
+      <circle cx="165" cy="74" r="9"/>
+      <circle cx="195" cy="74" r="9"/>
+      <circle cx="225" cy="74" r="9"/>
+    </g>
+    <text x="165" y="145" text-anchor="start" class="lbl-sm" style="font-family:'Courier New',monospace">$ uv run aoh validate \</text>
+    <text x="185" y="175" text-anchor="start" class="lbl-sm" style="font-family:'Courier New',monospace">collections/core/docker-disk-cleanup</text>
+    <text x="165" y="225" text-anchor="start" class="lbl-b" style="font-family:'Courier New',monospace">✓ pack OK — referential integrity holds</text>
+  </svg>
+  <p class="takeaway">Validate runs per pack — it checks the manifest, skills, and every cross-reference resolve.</p>
+  <p class="credit"><b>Gourav Shah</b> &nbsp;·&nbsp; Initcron AI / OpsFlow LLC / School of DevOps</p>
+  <div class="pageno">08</div>
+</section>
+
+</div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/reveal.min.js"></script>
+<script>
+  Reveal.initialize({
+    width: 1280,
+    height: 720,
+    margin: 0.04,
+    minScale: 0.2,
+    maxScale: 2.0,
+    hash: true,
+    center: false,
+    slideNumber: false,
+    transition: 'slide',
+    controlsTutorial: true
+  });
+</script>
+<script>
+  // Autofit: if a slide's content overflows (long titles/takeaways wrapping to
+  // two lines), shrink its diagram until everything fits. Measures the real
+  // rendered heights, so it holds across browsers, fonts, and zoom levels.
+  (function(){
+    function fit(sec){
+      if(!sec) return;
+      var svg = sec.querySelector('svg');
+      if(!svg) return;
+      var mh = 58;
+      svg.style.maxHeight = mh + '%';
+      var guard = 0;
+      while (sec.scrollHeight > sec.clientHeight + 2 && mh > 18 && guard++ < 20){
+        mh -= 3;
+        svg.style.maxHeight = mh + '%';
+      }
+    }
+    Reveal.on('ready', function(e){ fit(e.currentSlide); });
+    Reveal.on('slidechanged', function(e){ fit(e.currentSlide); });
+    window.addEventListener('resize', function(){ fit(Reveal.getCurrentSlide()); });
+  })();
+</script>
+</body>
+</html>
