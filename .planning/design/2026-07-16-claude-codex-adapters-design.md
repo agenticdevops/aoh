@@ -84,6 +84,11 @@ skills, get/list/watch only:
 
 Explicitly ABSENT: `secrets`, `configmaps`, `nodes/proxy`, `pods/exec`, `pods/attach`,
 `pods/portforward`, `serviceaccounts/token`, RBAC objects, `certificatesigningrequests`.
+Scope justification: the scripts strictly need fewer kinds (nodes, pods, pods/log,
+events, endpoints, PVCs, deployments); the extra workload kinds (replicasets,
+statefulsets, daemonsets, jobs, cronjobs, services, namespaces, quotas) are deliberate
+small headroom for free-form triage BEYOND the deterministic scripts — all
+non-sensitive, all read-only. Anything sensitive stays excluded.
 The Hermes adapter's existing provision renderer is updated to this same allowlist
 (one shared renderer). Docs' "read-only ≠ read-nothing" note becomes "and Secrets are
 excluded by default".
@@ -122,14 +127,19 @@ top/events/api-resources/api-versions/explain/version/auth can-i` and the pack's
 scripts; NO `kubectl config` in allow (`view --raw` leaks creds); `defaultMode` stays
 `default` (unlisted → prompt) with the HOOK as the parser-level backstop:
 `kubectl-guard.sh` receives the tool call JSON, extracts the command, normalizes
-(wrappers, abs paths, `--flags` before verb), denies any kubectl/helm invocation whose
-verb is not in the read allowlist, exit 2 = block. Guardrail, not boundary — CLAUDE.md
-says so.
+(wrappers, abs paths, `--flags` before verb), and denies any kubectl/helm invocation
+whose verb is not in the read allowlist. **Fail-closed**: parse failure, missing `jq`,
+malformed JSON, or ambiguous shell syntax ALL exit 2 (block) — never fall through to
+allow. Verb matching is tuple-aware (`kubectl auth can-i` allowed; `kubectl auth
+reconcile` blocked). Guardrail, not boundary — CLAUDE.md says so.
 
 ### src/aoh/adapters/codex.py (new) → workspace dir
 ```
 <output>/
-  .agents/skills/ops-<skill>/SKILL.md (+scripts)   wrapper-named to keep ops namespace
+  .agents/skills/ops-<skill>/SKILL.md (+scripts)   wrapper-named to keep ops namespace;
+                                                   frontmatter `name:` REWRITTEN to
+                                                   ops-<skill> (dir rename alone does
+                                                   not set the invocation name)
   AGENTS.md                                        role, posture, "RBAC is the boundary"
   .codex/config.toml                               model, approval_policy="on-request",
                                                    sandbox_mode="workspace-write",
@@ -148,12 +158,18 @@ requirement.
   namespace, token expiry (F11). Re-running provision.sh refreshes the token; launch.sh
   prints a warning when the recorded expiry has passed.
 - **inherit**: NO snapshot, NO `--raw`, no credentials written (PROJECT.md "never
-  store" holds). The adapter writes `kubeconfig-overlay` — a minimal kubeconfig
-  containing only `current-context: <ctx>` + a context entry pinning
-  cluster/user/namespace BY NAME — and launch.sh exports
-  `KUBECONFIG=<ws>/kubeconfig-overlay:${KUBECONFIG:-$HOME/.kube/config}` (merge:
-  first file wins for current-context; credentials stay in the user's own file,
-  exec-plugins like gke-gcloud-auth-plugin keep working). Agent acts as the USER;
+  store" holds). At materialize time the adapter RESOLVES the target context's
+  cluster/user entry names from the user's merged kubeconfig via
+  `kubectl config view -o jsonpath='{.contexts[?(@.name=="<ctx>")].context}'`
+  (read-only, redacted view — never `--raw`), then writes `kubeconfig-overlay`: a
+  minimal kubeconfig with `current-context: <ctx>` + one context entry pinning the
+  RESOLVED cluster/user names + namespace. launch.sh exports
+  `KUBECONFIG=<ws>/kubeconfig-overlay:${KUBECONFIG:-$HOME/.kube/config}` (kubeconfig
+  merge rules: first file wins for current-context; the context's cluster/user
+  references resolve against entries in the user's file; credentials stay there,
+  exec-plugins like gke-gcloud-auth-plugin keep working). Materialization VERIFIES the
+  overlay by running `kubectl config view --minify` under the merged KUBECONFIG and
+  fails with a diagnostic if the context does not resolve. Agent acts as the USER;
   no hard boundary; CLAUDE.md/AGENTS.md/SOUL state it. Never mutates the user's file.
 
 ### Binding validation (review F10)
@@ -218,3 +234,10 @@ Accepted-adapted: F8 (MaterializeRequest + diagnostics adopted; full capabilitie
 object deferred — a `name` + request-validation suffices for 3 adapters; revisit at
 Goose), F11 (manifest identity/expiry + refresh-by-rerun + launch warning adopted;
 identity-change confirmation deferred as follow-up).
+
+Convergence round (same reviewer, v2): 10/12 RESOLVED, F4/F11 PARTIAL with deferrals
+judged sound. Verdict APPROVE-WITH-CHANGES; the 4 changes are folded in above:
+overlay construction resolves cluster/user names via redacted `kubectl config view`
+jsonpath + `--minify` verification (HIGH); PreToolUse hook specified fail-closed with
+tuple-aware verb matching (MEDIUM); codex wrapper rewrites SKILL.md frontmatter `name`
+(MEDIUM); RBAC allowlist scope justified (LOW). FINAL.
