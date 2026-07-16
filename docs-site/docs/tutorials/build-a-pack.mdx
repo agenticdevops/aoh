@@ -1,0 +1,214 @@
+---
+title: Build a Pack from a Runbook
+---
+
+import Quiz from '@site/src/components/Quiz';
+
+# Build a Pack from a Runbook
+
+The [Getting Started](../getting-started/first-pack) pages validated a shipped pack
+and scaffolded an empty one with `aoh init-pack`. This tutorial goes the rest of the
+way: turn a runbook you already run by hand — "check disk usage, flag anything at
+risk" — into a real, validating AOH pack, by hand-authoring each artifact so you can
+see exactly what `aoh validate` is checking. Run everything from the root of the `aoh`
+repository.
+
+## 1. Start from `aoh init-pack`
+
+Scaffold the pack directory instead of creating files one at a time:
+
+```bash
+uv run aoh init-pack disk-usage-report \
+  --output collections/local/disk-usage-report \
+  --description "Collect read-only disk usage diagnostics and summarize risk."
+```
+
+```text
+created AOH pack: collections/local/disk-usage-report
+```
+
+The scaffold gives you `AOH.yaml`, one skill, and one each of `roles/`, `models/`,
+`runtime-requirements/`, and `evals/` — everything except the pack manifest and one
+skill is there so you have something to edit, not because it's required. This
+tutorial replaces the generated stand-ins with content specific to the runbook.
+
+## 2. Write the SKILL.md
+
+`skills/disk-usage-report/SKILL.md` is the reusable operational technique — the
+thing a cheap or local model can execute repeatably. Skills use the
+[agentskills](https://github.com) `SKILL.md` format: YAML frontmatter plus a body.
+
+```markdown
+---
+name: disk-usage-report
+description: Use when asked to check disk usage or free space on a host — runs a read-only df/du sweep and flags any filesystem above a risk threshold.
+---
+
+# Disk Usage Report
+
+Read-only. Never deletes files or resizes volumes — that's a separate, explicitly
+approved action.
+
+## Process
+
+1. Run `scripts/collect_disk_usage.sh` to gather `df -h` output for every mounted
+   filesystem.
+2. Flag any filesystem at or above 85% used as at-risk.
+3. Report a verdict first (healthy / at-risk / critical), then the evidence: which
+   filesystems, how full, how much headroom in absolute terms.
+4. If something is critical (95%+), name the next step (e.g. rotate logs, clear
+   package caches) without doing it.
+```
+
+The frontmatter `name` **must match the skill's directory name** — `disk-usage-report`
+in frontmatter, `skills/disk-usage-report/` on disk. `aoh validate` checks this
+directly; a mismatch fails validation with a clear error rather than silently
+installing under the wrong name.
+
+## 3. Add a read-only script
+
+Skills that shell out keep the script alongside the skill, under `scripts/`:
+
+```bash
+mkdir -p collections/local/disk-usage-report/skills/disk-usage-report/scripts
+```
+
+```bash title="skills/disk-usage-report/scripts/collect_disk_usage.sh"
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "--- df -h ---"
+df -h
+```
+
+No `rm`, no `resize2fs`, nothing that mutates anything — the skill's own instructions
+say read-only, and the script backs that up. (For a stronger guarantee than "the
+instructions say so," see [KubeOps Read-Only](./kubeops-readonly): pairing a skill
+with a `RuntimeRequirement` and a `Binding` lets an adapter enforce the read-only
+posture at the platform level, not just in the prompt.)
+
+## 4. Add a Role
+
+`roles/` is optional scaffolding — a pack with just `AOH.yaml` and a skill is already
+valid — but a `Role` is how you say *who* uses this skill and bundles it with a model
+profile and runtime requirement. Replace the generated `roles/ops-triage-lead.yaml`
+with:
+
+```yaml title="roles/ops-triage-lead.yaml"
+apiVersion: openagentix.io/v1alpha2
+kind: Role
+metadata:
+  name: ops-triage-lead
+spec:
+  purpose: Triage host-level resource risk using read-only diagnostics.
+  skills:
+    - disk-usage-report
+  runtimeRequirements:
+    - shell-readonly
+  modelProfile: local-worker
+  responsibilities:
+    - inspect current state before concluding anything
+    - report a verdict first, then evidence
+    - recommend the smallest safe next action; never perform destructive cleanup
+```
+
+Note the shape: `kind: Role`, not `AgentRole` — that name was retired before v1alpha2
+specifically so "role" reads as the real-world job function, not another word for
+"agent." `spec.skills` is a plain list of skill names; `aoh validate` checks every
+name in it resolves to an actual `skills/<name>/` in the pack.
+
+## 5. Add an Eval
+
+An `Eval` is a scenario prompt plus success criteria for **one** skill — the thing
+that lets you trust a cheap or local model to run the skill unsupervised. Every eval
+must declare `spec.skill`, and it must point at a skill that exists in the pack:
+
+```yaml title="evals/disk-usage-report-basic.yaml"
+apiVersion: openagentix.io/v1alpha2
+kind: Eval
+metadata:
+  name: disk-usage-report-basic
+spec:
+  skill: disk-usage-report
+  prompt: Check disk usage on this host and tell me if anything needs attention.
+  successCriteria:
+    - verdict first, then evidence
+    - names every filesystem at or above 85% used
+    - does not propose or take any destructive action
+```
+
+`spec.skill` isn't decorative — it's how the pack keeps evals from drifting away from
+the skill they're supposed to be testing. A pack can have plenty of skills and zero
+evals and still validate; add evals as you build enough confidence you'd want to
+delegate the skill to a cheaper model without babysitting it.
+
+## 6. Validate
+
+```bash
+uv run aoh validate collections/local/disk-usage-report
+```
+
+```text
+valid AOH pack: disk-usage-report
+```
+
+`validate` is read-only — the same check `adapt-hermes` and `install-hermes-agent`
+run internally before writing anything to disk. It confirms: `AOH.yaml` uses
+`apiVersion: openagentix.io/v1alpha2` and `kind: Pack`; the pack has at least one
+skill; every skill's frontmatter `name` matches its directory and has a
+`description`; the role's `skills`, `runtimeRequirements`, and `modelProfile`
+references all resolve; and the eval's `spec.skill` resolves. If any of those break,
+`validate` fails loudly instead of letting a broken pack reach an adapter.
+
+## What's optional, restated
+
+This tutorial touched `roles/`, `runtime-requirements/`, `models/`, and `evals/` —
+none of them were required to get a *valid* pack. The only two things `aoh validate`
+insists on are `AOH.yaml` and at least one `skills/<name>/SKILL.md`. Everything else
+is there because a real pack usually wants it, not because the validator demands it.
+
+## Next
+
+[A Read-Only Kubernetes Agent](./kubeops-readonly) takes this same shape — skill,
+role, runtime requirement — and shows what happens when the runtime requirement is
+backed by a real RBAC-scoped identity instead of just an instruction.
+
+<Quiz questions={[
+  {
+    prompt: 'What is the minimum a pack needs to pass `aoh validate`?',
+    options: [
+      {text: 'AOH.yaml plus at least one skills/<name>/SKILL.md', correct: true, explanation: 'Correct — the validator requires the pack manifest and at least one skill. Everything else (roles, models, runtime-requirements, evals, teams) is opt-in scaffolding.'},
+      {text: 'AOH.yaml, a role, and a model profile', correct: false, explanation: 'Roles and model profiles are useful but optional — a pack with just AOH.yaml and one skill already validates.'},
+      {text: 'AOH.yaml, a skill, and an eval', correct: false, explanation: 'Evals are optional. You can validate a pack with zero evals; add them as you build confidence in delegating a skill to a cheaper model.'},
+      {text: 'A workflows/ directory describing the sequence of skills', correct: false, explanation: 'There is no workflows/ kind in v1alpha2 — a workflows/ directory is actually a validation error (a leftover v1alpha1 layout signal). Sequencing is a process skill instead.'},
+    ],
+  },
+  {
+    prompt: 'Why does an Eval require `spec.skill`?',
+    options: [
+      {text: 'So the eval always tests exactly one named skill, and validate can confirm that skill exists', correct: true, explanation: 'Right — spec.skill keeps the eval tied to the skill it is supposed to gate, and the validator checks the reference resolves rather than letting evals drift from what they test.'},
+      {text: 'So the eval can trigger the skill\'s script directly without an agent', correct: false, explanation: 'Evals are scenario prompts with success criteria, not script runners — they describe what a passing run looks like, they do not execute anything themselves.'},
+      {text: 'It is only required for evals attached to a Role, not a standalone skill', correct: false, explanation: 'spec.skill is required on every Eval regardless of whether a Role references the skill.'},
+      {text: 'It lets one eval cover every skill in the pack at once', correct: false, explanation: 'The opposite — spec.skill scopes an eval to exactly one skill, by design, so eval coverage maps cleanly to skill trust.'},
+    ],
+  },
+  {
+    prompt: 'A SKILL.md has `name: disk-usage-report` in its frontmatter. What must be true for `aoh validate` to accept it?',
+    options: [
+      {text: 'The skill must live at skills/disk-usage-report/SKILL.md — frontmatter name matches the directory name', correct: true, explanation: 'Correct. validate checks that frontmatter name matches the enclosing skill directory exactly, and that a description is present.'},
+      {text: 'The name must match the pack\'s AOH.yaml metadata.name', correct: false, explanation: 'No such rule — a pack can contain multiple skills with names different from the pack name (e.g. the kubeops pack contains k8s-service-health-report, node-notready-triage, and others).'},
+      {text: 'The name must match a role that references it', correct: false, explanation: 'Skills do not need to be referenced by any role to validate — an unreferenced skill is still a valid skill.'},
+      {text: 'The name must be unique across every pack in the repository', correct: false, explanation: 'Validation is scoped to one pack at a time; there is no cross-pack uniqueness check.'},
+    ],
+  },
+  {
+    prompt: 'Which of these artifact kinds are optional in a pack (validate passes without them)? (Select all that apply)',
+    multiSelect: true,
+    options: [
+      {text: 'roles/', correct: true, explanation: 'Optional — Layer 2 org scaffolding. A pack validates with zero roles.'},
+      {text: 'evals/', correct: true, explanation: 'Optional — evals gate cheap-model trust per skill but are not required to validate.'},
+      {text: 'runtime-requirements/', correct: true, explanation: 'Optional — declaring capabilities the runtime should provide is opt-in.'},
+      {text: 'skills/<name>/SKILL.md', correct: false, explanation: 'Not optional — a pack must define at least one skill to validate. This is the one artifact requirement beyond AOH.yaml itself.'},
+    ],
+  },
+]} />
