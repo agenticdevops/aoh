@@ -1,0 +1,29 @@
+spec:
+  label: spec
+  description: Changes to the AOH pack spec — kinds, fields, validation rules
+  permalink: /spec
+
+design:
+  label: design
+  description: Design decisions and the reasoning behind them
+  permalink: /design
+
+kubernetes:
+  label: kubernetes
+  description: Notes on running agents against real clusters
+  permalink: /kubernetes
+
+safety:
+  label: safety
+  description: Guardrails, RBAC, and making agents safe to point at real systems
+  permalink: /safety
+
+meta:
+  label: meta
+  description: Notes about AOH's own process — how it's built, how it's documented
+  permalink: /meta
+
+docs:
+  label: docs
+  description: Documentation itself — what shipped, how it's structured
+  permalink: /docs

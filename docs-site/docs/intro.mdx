@@ -3,6 +3,30 @@ title: AOH — Agentic Ops Harness
 slug: /intro
 ---
 
+import Slides from '@site/src/components/Slides';
+
 # AOH — Agentic Ops Harness
 
-Placeholder landing. Real content in the final task.
+AOH turns runbooks into portable, evaluated, git-versioned skills — "Superpowers for
+Ops" — so cheap or local models can execute them repeatably while frontier models stay
+reserved for authoring skills and unblocking the hard cases. One pack format compiles to
+many agent runtimes (Hermes today; Claude Code, Codex, and Goose next), the way one
+Ansible role runs against many inventories. AOH organizes, packages, validates, and
+adapts a pack — it never executes; the runtime you point it at does.
+
+<Slides src="decks/what-is-aoh.html" title="What is AOH?" />
+
+## Start here
+
+- **Concepts** → [What is AOH?](./concepts/what-is-aoh) — the pitch, the analogy, the
+  problems it solves.
+- **Getting Started** → [Install](./getting-started/install) — get the CLI running and
+  validate your first pack.
+- **Tutorials** → [A Read-Only Kubernetes Agent](./tutorials/kubeops-readonly) — a real
+  pack, a real cluster, an agent that is *physically incapable* of `kubectl delete`.
+- **Field Notes** → [/field-notes](/field-notes) — build-in-public notes on building AOH
+  itself, written as it happens.
+
+---
+
+Gourav Shah — Founder, Initcron AI / OpsFlow LLC / School of DevOps
