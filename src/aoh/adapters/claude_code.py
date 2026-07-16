@@ -32,6 +32,7 @@ from aoh.adapters._k8s import (
 from aoh.adapters._k8s import (
     KUBECTL_MUTATION_COMMANDS,
     KUBECTL_READ_COMMANDS,
+    kubeconfig_merge_shell_expr,
     render_overlay_prepare_script,
     render_provision_script,
     validate_binding_fields,
@@ -314,11 +315,18 @@ block "unrecognized command shape; failing closed"
 
 
 def _render_settings_json(*, workspace: Path, inherit: bool = False) -> dict:
-    if inherit:
-        overlay_path = str((workspace / "kubeconfig-overlay").resolve())
-        kubeconfig_env = f"{overlay_path}:${{KUBECONFIG:-$HOME/.kube/config}}"
-    else:
-        kubeconfig_env = str((workspace / "kubeconfig").resolve())
+    # Claude Code settings.json `env` values are LITERAL strings — no shell
+    # expansion — and they OVERRIDE shell exports from launch.sh. In inherit
+    # mode the merge expression `<overlay>:${KUBECONFIG:-$HOME/.kube/config}`
+    # only works as a *shell* expression; written here it would sit as an
+    # unexpanded literal and silently replace launch.sh's correctly-expanded
+    # export, breaking kubectl in-session. So inherit mode omits the key
+    # entirely and lets launch.sh's `export KUBECONFIG=...` be the only
+    # source. Scoped mode has no expansion to lose (single absolute path),
+    # so it keeps writing the key directly here.
+    env: dict[str, str] = {}
+    if not inherit:
+        env["KUBECONFIG"] = str((workspace / "kubeconfig").resolve())
     hook_path = str((workspace / ".claude" / "hooks" / "kubectl-guard.sh").resolve())
 
     deny = [f"Bash(kubectl {verb}:*)" for verb in KUBECTL_MUTATION_COMMANDS]
@@ -328,7 +336,7 @@ def _render_settings_json(*, workspace: Path, inherit: bool = False) -> dict:
     allow.append("Bash(./.claude/skills/*)")
 
     return {
-        "env": {"KUBECONFIG": kubeconfig_env},
+        "env": env,
         "permissions": {
             "deny": deny,
             "allow": allow,
@@ -408,30 +416,50 @@ def _render_claude_md(pack: Pack, *, role: Role | None, binding: Binding | None)
                 "same caution you would if the user typed it themselves.\n"
             )
 
-    walls = (
-        "\n## Read-only enforcement — read this before using kubectl/helm\n\n"
-        "This workspace layers two controls. They are not the same thing and "
-        "must not be confused:\n\n"
-        "1. **Hard enforcement boundary — cluster RBAC.** The `kubeconfig` in "
-        "this workspace authenticates as a scoped ServiceAccount bound to a "
-        "read-only (get/list/watch) ClusterRole. The Kubernetes API server "
-        "itself rejects mutating requests from this identity, regardless of "
-        "what Claude Code or this workspace's configuration does. This is "
-        "the boundary that actually holds.\n"
-        "2. **Best-effort runtime guardrail — `.claude/settings.json` "
-        "permissions plus the `kubectl-guard.sh` PreToolUse hook.** These "
-        "deny kubectl/helm mutation commands at the tool layer before they "
-        "run, as a fast, friendly backstop. This is convenience, not "
-        "containment: it is scoped to commands Claude Code routes through "
-        "its Bash tool, and a sufficiently motivated bypass (e.g. asking a "
-        "human operator to run a command outside this session) is not "
-        "something a runtime-level hook can stop. Treat guardrail denials "
-        "as the system working as intended, not as bugs to route around.\n\n"
-        "The scoped kubeconfig is the workspace's default identity, not a "
-        "sandbox: it does not isolate other credentials that may be present "
-        "on this host. Containment (isolated HOME or a container) is out of "
-        "scope for this workspace.\n"
-    )
+    inherit_mode = binding is not None and binding.access == "inherit"
+
+    if inherit_mode:
+        walls = (
+            "\n## Guardrails — read this before using kubectl/helm\n\n"
+            "This workspace has NO hard enforcement boundary. The kubeconfig "
+            "overlay pins you to a context and namespace; it does not scope "
+            "down what you can do there. The only control in front of "
+            "kubectl/helm is a **best-effort runtime guardrail** — "
+            "`.claude/settings.json` permissions plus the `kubectl-guard.sh` "
+            "PreToolUse hook — which denies mutation commands at the tool "
+            "layer before they run. This is convenience, not containment: it "
+            "is scoped to commands Claude Code routes through its Bash tool, "
+            "and a sufficiently motivated bypass (e.g. asking a human "
+            "operator to run a command outside this session) is not "
+            "something a runtime-level hook can stop. There is no cluster "
+            "RBAC restriction backing it up in this mode — treat guardrail "
+            "denials as a helpful nudge, not a security guarantee.\n"
+        )
+    else:
+        walls = (
+            "\n## Read-only enforcement — read this before using kubectl/helm\n\n"
+            "This workspace layers two controls. They are not the same thing and "
+            "must not be confused:\n\n"
+            "1. **Hard enforcement boundary — cluster RBAC.** The `kubeconfig` in "
+            "this workspace authenticates as a scoped ServiceAccount bound to a "
+            "read-only (get/list/watch) ClusterRole. The Kubernetes API server "
+            "itself rejects mutating requests from this identity, regardless of "
+            "what Claude Code or this workspace's configuration does. This is "
+            "the boundary that actually holds.\n"
+            "2. **Best-effort runtime guardrail — `.claude/settings.json` "
+            "permissions plus the `kubectl-guard.sh` PreToolUse hook.** These "
+            "deny kubectl/helm mutation commands at the tool layer before they "
+            "run, as a fast, friendly backstop. This is convenience, not "
+            "containment: it is scoped to commands Claude Code routes through "
+            "its Bash tool, and a sufficiently motivated bypass (e.g. asking a "
+            "human operator to run a command outside this session) is not "
+            "something a runtime-level hook can stop. Treat guardrail denials "
+            "as the system working as intended, not as bugs to route around.\n\n"
+            "The scoped kubeconfig is the workspace's default identity, not a "
+            "sandbox: it does not isolate other credentials that may be present "
+            "on this host. Containment (isolated HOME or a container) is out of "
+            "scope for this workspace.\n"
+        )
 
     return (
         f"# AOH Claude Code workspace: {title}\n\n"
@@ -451,9 +479,7 @@ def _render_launch_script(*, with_kubeconfig: bool, inherit: bool = False) -> st
     if not with_kubeconfig:
         kubeconfig_line = ""
     elif inherit:
-        kubeconfig_line = (
-            'export KUBECONFIG="${DIR}/kubeconfig-overlay:${KUBECONFIG:-$HOME/.kube/config}"\n'
-        )
+        kubeconfig_line = f'export KUBECONFIG="{kubeconfig_merge_shell_expr("${DIR}")}"\n'
     else:
         kubeconfig_line = 'export KUBECONFIG="${DIR}/kubeconfig"\n'
     return (

@@ -75,7 +75,9 @@ validation and safe-value rejection rules described under
 adapter always emits one about its execpolicy rules' bypass gaps, and any
 adapter emits one for `access: inherit` bindings (no RBAC boundary). See
 [Runtime Adapters](./adapters) for what each runtime generates and the full
-threat model.
+threat model. Note the output-nesting asymmetry: the Hermes adapter writes its
+profile a level deeper, under `--output/<profile>/`, while the Claude Code and
+Codex adapters write their workspace files directly into `--output`.
 
 ## `aoh adapt-hermes`
 

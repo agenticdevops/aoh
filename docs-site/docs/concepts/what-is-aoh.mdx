@@ -19,8 +19,8 @@ unblocking the cases where the cheap model gets stuck.
 If you've used Ansible, you already have the mental model: a **pack** is like a role,
 a **binding** is like an inventory entry. But the comparison has one crucial limit —
 **AOH organizes, packages, validates, and adapts. It never executes.** Runtimes
-execute. AOH compiles a pack into a runtime-native profile (Hermes today; Claude Code,
-Codex, and Goose next) and hands it off. The harness never touches your cluster, your
+execute. AOH compiles a pack into a runtime-native profile (Hermes, Claude Code, and
+Codex today; Goose next) and hands it off. The harness never touches your cluster, your
 cloud account, or your terminal directly.
 
 ## The problem it solves

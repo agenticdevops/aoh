@@ -1,7 +1,7 @@
 # AOH — Agentic Ops Harness
 
 Engine-neutral harness for agentic ops: packs of skills/roles/teams compiled to agent
-runtimes (Hermes today; Claude Code, Codex, Goose next). AOH organizes, packages,
+runtimes (Hermes, Claude Code, Codex today; Goose next). AOH organizes, packages,
 validates, adapts — it never executes. Runtimes execute.
 
 ## Session bootstrap (ALWAYS, including after /clear or compaction)

@@ -154,6 +154,9 @@ for the full allow/exclude list). This holds identically whether the workspace w
 generated for Hermes, Claude Code, or Codex — it's a cluster-side guarantee, not a
 runtime one.
 
+(`auth can-i get nodes/proxy` reports yes due to a can-i quirk with subresources —
+the real request is Forbidden; see the validation evidence doc.)
+
 ## 5. The hook, blocking for real
 
 Same adversarial inputs used in the unit tests, run directly against the generated

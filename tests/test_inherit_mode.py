@@ -142,11 +142,16 @@ def test_claude_code_scoped_launch_sh_has_single_path_regression(tmp_path: Path)
     assert "kubeconfig-overlay" not in launch
 
 
-def test_claude_code_inherit_settings_json_env_kubeconfig_is_merge_value(tmp_path: Path) -> None:
+def test_claude_code_inherit_settings_json_env_has_no_kubeconfig(tmp_path: Path) -> None:
+    # Claude Code settings.json `env` values are LITERAL strings — no shell
+    # expansion — and OVERRIDE shell exports. Writing the merge expression
+    # here (as scoped mode's single absolute path is written) would replace
+    # launch.sh's correctly-expanded `KUBECONFIG` export with a literal,
+    # unexpanded string, breaking kubectl in-session. Inherit mode must omit
+    # the key entirely so launch.sh's shell export is the only source.
     workspace = _materialize_claude_code(tmp_path, access="inherit")
     settings = json.loads((workspace / ".claude" / "settings.json").read_text(encoding="utf-8"))
-    overlay_path = str((workspace / "kubeconfig-overlay").resolve())
-    assert settings["env"]["KUBECONFIG"] == f"{overlay_path}:${{KUBECONFIG:-$HOME/.kube/config}}"
+    assert "KUBECONFIG" not in settings.get("env", {})
 
 
 def test_claude_code_scoped_settings_json_env_kubeconfig_is_single_path_regression(
@@ -163,6 +168,24 @@ def test_claude_code_inherit_claude_md_states_no_hard_boundary(tmp_path: Path) -
     claude_md = (workspace / "CLAUDE.md").read_text(encoding="utf-8")
     assert "your credentials" in claude_md.lower() or "your own credentials" in claude_md.lower()
     assert "no hard enforcement boundary" in claude_md.lower()
+
+
+def test_claude_code_inherit_claude_md_does_not_contradict_itself(tmp_path: Path) -> None:
+    # Inherit mode's binding block says "There is NO hard enforcement
+    # boundary in this mode." The scoped-mode "Read-only enforcement"
+    # section (unconditionally appended, pre-fix) claims the opposite —
+    # "Hard enforcement boundary — cluster RBAC ... This is the boundary
+    # that actually holds." Both must never appear in the same file.
+    workspace = _materialize_claude_code(tmp_path, access="inherit")
+    claude_md = (workspace / "CLAUDE.md").read_text(encoding="utf-8")
+    assert "boundary that actually holds" not in claude_md
+    assert "scoped ServiceAccount bound to a read-only" not in claude_md
+
+
+def test_claude_code_scoped_claude_md_still_states_hard_boundary(tmp_path: Path) -> None:
+    workspace = _materialize_claude_code(tmp_path, access=None)
+    claude_md = (workspace / "CLAUDE.md").read_text(encoding="utf-8")
+    assert "boundary that actually holds" in claude_md
 
 
 def test_claude_code_inherit_diagnostics_include_inherit_warning(tmp_path: Path) -> None:

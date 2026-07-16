@@ -38,8 +38,8 @@ adapter stays honest about what it can deliver.
 ```mermaid
 flowchart TD
     Pack["One Pack\n(RuntimeRequirement: kubectl-readonly)"] --> H[Hermes adapter]
-    Pack --> C["Claude Code adapter (planned)"]
-    Pack --> X["Codex adapter (planned)"]
+    Pack --> C["Claude Code adapter"]
+    Pack --> X["Codex adapter"]
     Pack --> G["Goose adapter (planned)"]
     H --> HP["Hermes profile:\nscoped kubeconfig + RBAC"]
     C --> CP["Claude Code profile:\nmaps requirement or documents gap"]
@@ -47,9 +47,9 @@ flowchart TD
     G --> GP["Goose profile:\nmaps requirement or documents gap"]
 ```
 
-Only the Hermes adapter exists today; the others are planned. The point of the
-diagram is the shape, not the count — one pack, N adapters, each free to map a
-requirement onto whatever its platform actually supports.
+Hermes, Claude Code, and Codex adapters are shipped today; Goose and OpenCode are
+planned. The point of the diagram is the shape, not the count — one pack, N adapters,
+each free to map a requirement onto whatever its platform actually supports.
 
 ## The analogy
 

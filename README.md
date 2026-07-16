@@ -35,8 +35,8 @@ Org / Business Unit / Project
       -> Runtime Requirements
       -> Model Profile
   -> Runtime Adapter
-    -> Hermes profiles today
-    -> Goose / Codex / Claude Code / OpenCode later
+    -> Hermes / Claude Code / Codex profiles today
+    -> Goose / OpenCode later
 ```
 
 ## What Works Today
@@ -45,8 +45,11 @@ This MVP includes:
 
 - A portable AOH pack format.
 - Team, role, skill, model profile, runtime requirement, and eval artifacts.
-- A Python/uv CLI for validation and adapter generation.
-- A Hermes adapter that creates launchable Hermes profiles.
+- A Python/uv CLI for validation and adapter generation, including the
+  runtime-neutral `aoh install --runtime <hermes|claude-code|codex>` entrypoint.
+- Hermes, Claude Code, and Codex adapters that materialize launchable, runtime-native
+  workspaces (Hermes profiles, Claude Code `.claude/` workspaces, Codex `.agents/` +
+  `.codex/` workspaces).
 - A realistic `acme-platform-ops` example with SRE, DevOps, and MLOps roles.
 - A core `docker-disk-cleanup` vertical slice.
 

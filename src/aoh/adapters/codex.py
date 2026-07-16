@@ -44,6 +44,7 @@ from aoh.adapters._k8s import (
 from aoh.adapters._k8s import (
     KUBECTL_MUTATION_COMMANDS,
     KUBECTL_READ_COMMANDS,
+    kubeconfig_merge_shell_expr,
     render_overlay_prepare_script,
     render_provision_script,
     validate_binding_fields,
@@ -133,7 +134,10 @@ def _render_agents_md(
             "## Read-only contract\n\n"
             "You operate under a scoped, read-only Kubernetes identity. Prefer "
             "read-only inspection; report denials as the system working as "
-            "intended, not as errors to work around.\n\n"
+            "intended, not as errors to work around. This holds when you start "
+            "the agent via `./launch.sh` (which exports the workspace "
+            "`KUBECONFIG`); launching codex directly in this directory uses "
+            "your own kubeconfig instead.\n\n"
             "This workspace also ships `.codex/rules/kubectl-readonly.rules`, "
             "a best-effort execpolicy guardrail that flags kubectl/helm "
             "mutation verbs. Be honest about what this is: cluster RBAC is the "
@@ -210,9 +214,7 @@ def _render_launch_script(*, with_kubeconfig: bool, inherit: bool = False) -> st
     if not with_kubeconfig:
         kubeconfig_line = ""
     elif inherit:
-        kubeconfig_line = (
-            'export KUBECONFIG="${DIR}/kubeconfig-overlay:${KUBECONFIG:-$HOME/.kube/config}"\n'
-        )
+        kubeconfig_line = f'export KUBECONFIG="{kubeconfig_merge_shell_expr("${DIR}")}"\n'
     else:
         kubeconfig_line = 'export KUBECONFIG="${DIR}/kubeconfig"\n'
     return (

@@ -67,6 +67,21 @@ _DNS_1123_LABEL_RE = re.compile(r"^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$")
 _KUBE_CONTEXT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9:/._@-]*$")
 
 
+def kubeconfig_merge_shell_expr(workspace_dir_var: str = "$DIR") -> str:
+    """Shell-context KUBECONFIG merge expression for `access: inherit` mode.
+
+    SHELL ONLY — never place this in a JSON/TOML `env` block. Those are
+    literal values with no shell expansion, and (for Claude Code) `env`
+    entries in settings.json OVERRIDE shell exports rather than merge with
+    them. Putting this expression there does not just fail to expand — it
+    silently replaces the correctly-expanded launch.sh export with a dead
+    literal string, breaking kubectl in-session. This function exists so the
+    one correct shell-context expression is defined once and reused by every
+    launch.sh renderer instead of being hand-duplicated per adapter.
+    """
+    return f'{workspace_dir_var}/kubeconfig-overlay:${{KUBECONFIG:-$HOME/.kube/config}}'
+
+
 def validate_binding_fields(binding: Binding) -> None:
     """Validate binding name/namespace/kubeContext with per-field allowlists.
 

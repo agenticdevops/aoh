@@ -74,14 +74,16 @@ The full subcommand surface, all of it:
 |---|---|
 | `validate` | Check a pack's structure and referential integrity |
 | `init-pack` | Scaffold a new starter pack |
+| `install` | Install a pack for a runtime — `hermes`, `claude-code`, or `codex` (all shipped) |
 | `adapt-hermes` | Generate a Hermes-native view of a pack (files only, no install) |
 | `install-hermes` | Install a pack's skills into a Hermes skills directory |
 | `install-hermes-agent` | Create a launchable Hermes profile for a pack or role |
 | `install-hermes-team` | Create one Hermes profile per role in a team |
 
-That's the entire CLI today. There is no `aoh install --runtime <x>`, no drift
-detection, and no adapters beyond Hermes yet — see
-[Adapters](../reference/adapters) for what's planned.
+`aoh install --runtime <hermes|claude-code|codex>` exists and is the runtime-neutral
+entrypoint — see [Adapters](../reference/adapters) for what each runtime generates.
+Drift detection (`aoh status` / `sync` / `capture`) and a standalone eval runner are
+still roadmap, not implemented.
 
 ## Minimum viable pack
 

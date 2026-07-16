@@ -264,6 +264,18 @@ def test_agents_md_content(tmp_path: Path) -> None:
     )
 
 
+def test_agents_md_states_direct_launch_credential_gap(tmp_path: Path) -> None:
+    # config.toml sets no env — the scoped identity AGENTS.md otherwise
+    # claims unconditionally only holds when launched via ./launch.sh
+    # (which exports the workspace KUBECONFIG). Running `codex` directly in
+    # this directory falls through to the host's own ~/.kube/config.
+    materialize(tmp_path)
+    agents_md = (tmp_path / "workspace" / "AGENTS.md").read_text(encoding="utf-8")
+    assert "./launch.sh" in agents_md
+    assert "launching codex directly in this directory" in agents_md.lower()
+    assert "your own kubeconfig" in agents_md.lower()
+
+
 # --- config.toml -------------------------------------------------------------
 
 

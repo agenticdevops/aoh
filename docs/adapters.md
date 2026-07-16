@@ -127,6 +127,14 @@ capability and the invokable command (`$ops-<skill>`). Project-local config, hoo
 and rules all require a **trusted project**; the adapter's generated files assume the
 workspace directory will be trusted before `codex` is launched against it.
 
+`.codex/config.toml` sets no `env` block — Codex has no per-project env mechanism
+equivalent to Claude Code's `settings.json`. The scoped kubeconfig identity only
+applies when the agent is started via `./launch.sh`, which exports the workspace
+`KUBECONFIG` before execing `codex`. Running `codex` directly in this directory
+(bypassing `launch.sh`) falls through to the host's own `~/.kube/config` — full host
+credentials, with only the best-effort execpolicy rules (not RBAC) as a guardrail.
+AGENTS.md states this caveat inline.
+
 ## Access modes
 
 `Binding.access` is `scoped` (default) or `inherit` — the loader rejects any other

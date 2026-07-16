@@ -9,6 +9,7 @@ from aoh.adapters._k8s import (
     INHERIT_DIAGNOSTIC as _INHERIT_DIAGNOSTIC,
 )
 from aoh.adapters._k8s import (
+    kubeconfig_merge_shell_expr,
     render_overlay_prepare_script,
     render_provision_script,
     validate_binding_fields,
@@ -405,10 +406,8 @@ def _render_launch_script(
     if not with_kubeconfig:
         kubeconfig_line = ""
     elif inherit:
-        kubeconfig_line = (
-            'export KUBECONFIG="$(cd "$(dirname "$0")" && pwd)/kubeconfig-overlay'
-            ':${KUBECONFIG:-$HOME/.kube/config}"\n'
-        )
+        merge_expr = kubeconfig_merge_shell_expr('$(cd "$(dirname "$0")" && pwd)')
+        kubeconfig_line = f'export KUBECONFIG="{merge_expr}"\n'
     else:
         kubeconfig_line = (
             'export KUBECONFIG="$(cd "$(dirname "$0")" && pwd)/kubeconfig"\n'
