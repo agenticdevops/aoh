@@ -44,6 +44,39 @@ uv run aoh init-pack <name> --output <path> --description <text>
 
 Prints `created AOH pack: <target>` on success.
 
+## `aoh install`
+
+Install an AOH pack for a runtime — `hermes`, `claude-code`, or `codex`, all
+**shipped**. This is the runtime-neutral entrypoint: a thin wrapper around
+`ADAPTERS[<runtime>].materialize(request)`.
+
+```bash
+uv run aoh install <pack> --runtime <hermes|claude-code|codex> --output <path> \
+  [--binding <path>] [--role <name>] [--profile <name>] [--model <hint>]
+```
+
+| Argument | Required | Default |
+|---|---|---|
+| `pack` (positional, path) | yes | — |
+| `--runtime` | yes | choices: `hermes`, `claude-code`, `codex` |
+| `--output` (path) | yes | — |
+| `--binding` (path) | no | `None` |
+| `--role` | no | `None` |
+| `--profile` | no | `None` |
+| `--model` | no | `None` |
+
+Validates the pack first. If `--binding` is given, it is loaded via
+`load_binding()` and passed straight through to the adapter — the same binding
+validation and safe-value rejection rules described under
+`install-hermes-agent` below apply here too, since all three adapters share the
+`_k8s.py` rendering helpers. Prints
+`installed <runtime> workspace in <output_dir>`, then prints every entry in
+`result.diagnostics` to stderr prefixed `warning:` — for example, the Codex
+adapter always emits one about its execpolicy rules' bypass gaps, and any
+adapter emits one for `access: inherit` bindings (no RBAC boundary). See
+[Runtime Adapters](./adapters) for what each runtime generates and the full
+threat model.
+
 ## `aoh adapt-hermes`
 
 Generate a Hermes-native view of a pack (files only — does not touch
@@ -107,7 +140,11 @@ declare `target.kubeContext`, and `metadata.name` / `target.kubeContext` /
 — unsafe values are rejected before anything is rendered into shell scripts. A
 binding also produces a `provision.sh` in the profile directory (see
 [Runtime Adapters](./adapters)). Prints `installed Hermes agent profile in
-<output_dir>`.
+<output_dir>`, then a stderr hint: `hint: prefer 'aoh install --runtime hermes'`.
+This command is not deprecated — it still produces a launchable *profile*
+(`config.yaml`/`SOUL.md`/`launch.sh`), a different shape than the plain
+skills/commands file view `aoh install --runtime hermes` writes — the hint just
+points new work at the newer, runtime-neutral entrypoint above.
 
 ## `aoh install-hermes-team`
 
@@ -140,12 +177,16 @@ Adapters generate one invokable command per skill, namespaced under the `ops`
 prefix. The canonical command name is `ops:<skill>`; each adapter maps the separator
 to its runtime's convention:
 
-| Runtime | Surface | Command |
-|---|---|---|
-| Hermes | `commands/ops-<skill>.md` | `ops-<skill>` |
-| Claude Code (planned) | `commands/ops/<skill>.md` (subdir → namespace) | `/ops:<skill>` |
-| Codex (planned) | `prompts/ops-<skill>.md` | `/ops-<skill>` |
-| OpenCode (planned) | `command/ops-<skill>.md` | `/ops-<skill>` |
+| Runtime | Surface | Command | Status |
+|---|---|---|---|
+| Hermes | `commands/ops-<skill>.md` | `ops-<skill>` | shipped |
+| Claude Code | `.claude/commands/ops/<skill>.md` (subdir → namespace) | `/ops:<skill>` | shipped |
+| Codex | `.agents/skills/ops-<skill>/SKILL.md` (frontmatter `name` rewritten, no separate command file) | `$ops-<skill>` | shipped |
+| OpenCode | `command/ops-<skill>.md` | `/ops-<skill>` | planned |
 
-The prefix lives in the spec; separator mapping lives in each adapter. See
-[Runtime Adapters](./adapters) for what the Hermes adapter actually generates today.
+The prefix lives in the spec; separator mapping lives in each adapter. Codex has no
+custom-prompt surface distinct from skills (project-scoped custom prompts are
+deprecated on 0.144.x) — the skill itself, wrapper-named `ops-<skill>`, is both the
+capability and the invokable command. See [Runtime Adapters](./adapters) for what
+each adapter actually generates today, including the workspace layouts and the
+threat model.

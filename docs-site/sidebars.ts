@@ -22,7 +22,12 @@ const sidebars: SidebarsConfig = {
     {
       type: 'category',
       label: 'Tutorials',
-      items: ['tutorials/build-a-pack', 'tutorials/kubeops-readonly', 'tutorials/bindings-inventory'],
+      items: [
+        'tutorials/build-a-pack',
+        'tutorials/kubeops-readonly',
+        'tutorials/kubeops-claude-code',
+        'tutorials/bindings-inventory',
+      ],
     },
     {
       type: 'category',

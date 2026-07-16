@@ -12,7 +12,7 @@ Think of it as an early **Ansible-for-agentic-ops** pattern:
 - AOH has orgs, teams, roles, skills (including process skills), runtime requirements, and adapters.
 - Agent runtimes such as Hermes, Goose, Codex, Claude Code, and OpenCode become execution engines.
 
-AOH starts with Hermes Agent as the first working runtime adapter.
+AOH ships three runtime adapters today: Hermes, Claude Code, and Codex.
 
 ## Why AOH?
 
@@ -213,16 +213,20 @@ Current commands:
 
 - `validate`: validate an AOH pack
 - `init-pack`: create a starter pack
+- `install --runtime <hermes|claude-code|codex>`: materialize a pack as a
+  self-contained workspace for the given runtime (`--output` required; optional
+  `--binding`, `--role`, `--profile`, `--model`)
 - `adapt-hermes`: generate a Hermes-native file view
 - `install-hermes`: install pack skills into a Hermes skills directory
 - `install-hermes-agent`: create one launchable Hermes profile for a pack or role
 - `install-hermes-team`: create one Hermes profile per role in a team
 
+See [Runtime Adapters](docs/adapters.md) for what each `--runtime` generates,
+including the threat model and honest guardrail gaps for Claude Code and Codex.
+
 ## Roadmap
 
 - Goose adapter: skills, recipes, sub-recipes, extensions.
-- Codex adapter: `.agents/skills`, `AGENTS.md`, project/worktree conventions.
-- Claude Code adapter: skills plus `CLAUDE.md` role/project instructions.
 - OpenCode adapter.
 - Pack registry and versioning.
 - Eval runner for role/skill validation.

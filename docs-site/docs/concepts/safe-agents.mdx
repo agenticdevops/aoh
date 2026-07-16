@@ -51,23 +51,114 @@ itself never touches the cluster — consistent with the rule that AOH organizes
 adapts, it doesn't execute.
 
 :::tip[Honesty note]
-Read-only is not read-nothing. The demo `ClusterRole` grants `get`/`list`/`watch` on
-everything, which includes every `Secret` in the cluster — fine for a local kind
-cluster, not fine for production. A production binding should tighten the role (for
-example, an aggregated `view` role plus explicit resources, excluding `secrets`).
+Read-only is not read-nothing, but the current `ClusterRole` (`aoh-readonly`,
+rendered by `src/aoh/adapters/_k8s.py` and shared by every adapter) is an explicit
+resource **allowlist**, not a wildcard — and `secrets` is deliberately not on it,
+along with `configmaps`, `nodes/proxy`, `pods/exec`, `pods/attach`,
+`pods/portforward`, `serviceaccounts/token`, RBAC objects, and
+`certificatesigningrequests`. `auth can-i get secrets` returns `no` against a live
+cluster — see [`docs/demos/adapter-validation-2026-07-16.md`](https://github.com/agenticdevops/aoh/blob/main/docs/demos/adapter-validation-2026-07-16.md)
+for the flip from `yes` (old wildcard role) to `no` (current allowlist).
 :::
+
+## Two walls, honestly labeled
+
+Everything above described one wall: cluster RBAC. Once you point an adapter at
+Claude Code or Codex instead of Hermes, there's a second wall in front of it — a
+runtime-level guardrail that tries to stop a mutating `kubectl`/`helm` call before it
+ever leaves the agent's tool call. That second wall is real, and worth using, but it
+is **not the same kind of thing** as RBAC, and conflating the two is exactly the
+mistake this page exists to prevent.
+
+| Runtime | Hard enforcement boundary | Best-effort runtime guardrail | Required assumptions |
+|---|---|---|---|
+| Claude Code | cluster RBAC via scoped identity | `permissions.deny` (settings.json) + a generated `PreToolUse` hook | agent uses the workspace kubeconfig; host credentials are not isolated unless the operator sandboxes the session |
+| Codex | cluster RBAC via scoped identity | execpolicy rules (prefix-based, documented gaps) + `approval_policy` | same |
+| Hermes | cluster RBAC via scoped identity | none | same |
+
+```mermaid
+flowchart LR
+    A[Agent command] --> B{Runtime guardrail<br/>may block}
+    B -->|blocked| X[Denied before it leaves the agent]
+    B -->|allowed or bypassed| C{Cluster RBAC<br/>always bounds the<br/>scoped identity}
+    C -->|forbidden| Y[403 from the API server]
+    C -->|permitted| D[Kubernetes API server]
+```
+
+Only one column in that table is a boundary — a guarantee that holds regardless of
+what the runtime's own code does. The other column is a convenience layer: useful,
+sometimes very good, but bypassable by construction, because it operates on a
+best-effort reading of a command string rather than on an authenticated identity the
+API server itself checks.
+
+**Claude Code is the exception worth knowing about.** Of the three runtimes, it is
+the only one whose configuration can express **subcommand-level deny** at all — most
+people evaluating Claude Code for ops work don't know this exists. The generated
+`.claude/settings.json` sets `permissions.deny` for the exact mutation verb list
+(`kubectl delete`, `apply`, `edit`, `patch`, `create`, …, `helm upgrade/install/
+uninstall/rollback`) and `permissions.allow` for the read verbs plus the pack's own
+skill scripts. Denying at the permissions layer alone would still leave gaps for
+disguised commands (absolute binary paths, `--context`-first invocations, `sh -c`
+wrappers), so the adapter also generates `.claude/hooks/kubectl-guard.sh`, wired as a
+`PreToolUse` hook on the Bash tool. It does real normalization — strips `sudo`/`env`/
+`time` wrappers, unwraps `sh -c`/`bash -c`, strips a leading absolute path off the
+binary, tokenizes past flags to find the verb — and it is **fail-closed**: missing
+`jq`, malformed JSON, empty stdin, or any shell metacharacter (`| ; & > < $( ) `` \`)
+anywhere in the command all exit 2 (block), never fall through to allow. Live-verified
+against real adversarial input in
+[`docs/demos/adapter-validation-2026-07-16.md`](https://github.com/agenticdevops/aoh/blob/main/docs/demos/adapter-validation-2026-07-16.md)
+§8 — all three forms that bypass Codex's rules file are caught here.
+
+:::danger[Compound commands are blocked outright]
+The hook's shell-metacharacter check is unconditional — it rejects `|`, `;`, `&`,
+`>`, `<`, `$(...)`, backticks, and backslashes in **any** Bash tool call, whether or
+not kubectl/helm is even mentioned. A harmless `kubectl get pods | grep Pending` is
+blocked exactly like `kubectl delete pod x`, and a bare `bash script.sh` (no `-c`) is
+blocked too, because the hook only knows how to safely unwrap the `sh -c '<command>'`
+form. This is a deliberate fail-closed trade-off, not a bug: call the pack's skill
+scripts directly (`./script.sh args`, already in `permissions.allow`), or split
+multi-stage shell work into separate single-command tool calls instead of chaining
+them.
+:::
+
+Codex's second wall is thinner. `.codex/rules/kubectl-readonly.rules` uses
+codex-cli's `execpolicy` feature — `prefix_rule` entries matching a **literal leading
+token-sequence prefix**, with no normalization step. Verified against the real
+`codex execpolicy check` CLI, three forms provably bypass it entirely (all return
+`{"matchedRules":[]}`, no `decision` at all): `--context`-first invocations, absolute
+binary paths, and `sh -c`-wrapped commands. These gaps are documented verbatim in the
+generated rules file's own header comment, in `AGENTS.md`, and in the adapter's
+`diagnostics` output — Codex has no hook that can actually block a tool call (its
+lifecycle hooks are notifications only), so there is no equivalent normalizing
+blocker available to close them.
+
+**The cluster gets the last word, every time.** Whether a runtime guardrail blocks a
+command, misses it, or doesn't exist at all (Hermes), the scoped ServiceAccount's
+RBAC is what the API server actually checks before honoring a mutating request. The
+guardrail is a nice-to-have that reduces noise and catches the common case early; the
+RBAC boundary is what makes the "physically incapable" claim true regardless of
+runtime behavior. Full breakdown, including the fixed resource allowlist and every
+gap form's exact command, is in [Runtime Adapters](../reference/adapters).
 
 ## Why not just trust the runtime's own guardrails?
 
-Because it doesn't have one that's aware of the target platform. This was verified,
-not assumed: Hermes's own command guardrail is a hardcoded pattern list with zero
-`kubectl` awareness — no subcommand allow/deny configuration exists. That means an
-unguarded profile would let `kubectl delete` run unprompted. The lesson generalizes:
-an agent runtime's built-in safety net is necessarily generic, because it doesn't
-know your target platform's semantics. The cluster does. So the cluster is the wall,
-not the runtime and not the prompt.
+Because two of the three don't have one that's platform-aware, and even the one that
+does (Claude Code) is a guardrail, not a boundary. This was verified, not assumed:
+Hermes's own command guardrail is a hardcoded pattern list with zero `kubectl`
+awareness — no subcommand allow/deny configuration exists at all, so an unguarded
+Hermes profile would let `kubectl delete` run unprompted. Claude Code's
+`permissions.deny` + hook is real and catches more adversarial forms than Codex's
+execpolicy rules do, but it only covers commands routed through Claude Code's own
+Bash tool, and it fails closed on anything it can't parse rather than guaranteeing
+containment. The lesson generalizes: an agent runtime's built-in safety net is
+necessarily generic and bypassable by construction, because it is reading a command
+string, not checking an authenticated identity. The cluster does the latter. So the
+cluster is the wall — the runtime, at best, is a second wall in front of it.
 
 ## Where to next
 
 - [KubeOps Read-Only tutorial](../tutorials/kubeops-readonly) — walk through
-  provisioning the identity and proving the guardrail yourself, end to end.
+  provisioning the identity and proving the guardrail yourself, end to end (Hermes).
+- [A Read-Only Kubernetes Agent with Claude Code](../tutorials/kubeops-claude-code) —
+  the same pack, generated for Claude Code, with the `permissions.deny` + hook wall
+  shown live alongside the RBAC wall.

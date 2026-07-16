@@ -1,0 +1,286 @@
+---
+title: A Read-Only Kubernetes Agent with Claude Code
+---
+
+import Quiz from '@site/src/components/Quiz';
+
+# A Read-Only Kubernetes Agent with Claude Code
+
+[A Read-Only Kubernetes Agent](./kubeops-readonly) walked through the Hermes
+adapter: one wall, cluster RBAC, and Hermes's total lack of a `kubectl`-aware
+guardrail. This tutorial installs the exact same pack and binding for **Claude
+Code** instead, which changes the picture in one specific way — Claude Code is the
+only one of the three shipped runtimes whose configuration can express
+subcommand-level deny. You'll see both walls: the RBAC boundary (same as before)
+and a second, best-effort guardrail layered in front of it.
+
+Everything here is copied verbatim from a real run — see
+[`docs/demos/adapter-validation-2026-07-16.md`](https://github.com/agenticdevops/aoh/blob/main/docs/demos/adapter-validation-2026-07-16.md)
+for the full transcript against the live `kind-sresquad-demo` cluster.
+
+## 1. Generate the workspace
+
+```bash
+uv run aoh install --runtime claude-code collections/core/kubeops \
+  --output ./kubeops-cc \
+  --binding examples/sresquad-site/bindings/kubeops-sresquad.yaml
+```
+
+```text
+installed claude-code workspace in ./kubeops-cc
+```
+
+Same binding as the Hermes tutorial — `kubeops-copilot` role, `kind-sresquad-demo`
+context, `default` namespace, `access: scoped` (the default). `aoh install` is the
+runtime-neutral entrypoint: swap `--runtime claude-code` for `--runtime hermes` or
+`--runtime codex` and everything else about the command stays the same.
+
+## 2. Tour the generated artifacts
+
+```text
+kubeops-cc/
+  .claude/skills/{k8s-service-health-report,node-notready-triage,pending-pod-triage,pod-crashloop-triage}/SKILL.md (+scripts)
+  .claude/commands/ops/{...}.md         → /ops:<skill>
+  .claude/agents/kubeops-copilot.md
+  .claude/settings.json
+  .claude/hooks/kubectl-guard.sh
+  CLAUDE.md
+  provision.sh
+  launch.sh
+```
+
+Nothing here touches `~/.claude` — the whole workspace is self-contained under
+`--output`.
+
+### `.claude/settings.json` — the permissions.deny excerpt
+
+```json
+{
+  "env": { "KUBECONFIG": "/abs/path/kubeops-cc/kubeconfig" },
+  "permissions": {
+    "deny": [
+      "Bash(kubectl delete:*)",
+      "Bash(kubectl apply:*)",
+      "Bash(kubectl edit:*)",
+      "Bash(kubectl patch:*)",
+      "Bash(kubectl create:*)",
+      "Bash(kubectl exec:*)",
+      "Bash(kubectl drain:*)",
+      "Bash(helm upgrade:*)",
+      "Bash(helm install:*)"
+    ],
+    "allow": [
+      "Bash(kubectl get:*)",
+      "Bash(kubectl describe:*)",
+      "Bash(kubectl logs:*)",
+      "Bash(./.claude/skills/*)"
+    ],
+    "defaultMode": "default"
+  },
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Bash", "hooks": [{ "type": "command", "command": "/abs/path/.claude/hooks/kubectl-guard.sh" }] }
+    ]
+  }
+}
+```
+
+(Trimmed for readability — the real file lists every mutation verb from the shared
+`_k8s.py` allowlist.) This is the under-known capability: Claude Code's own
+`permissions.deny` config can name `kubectl delete` specifically and refuse it
+before the tool call even happens, no hook required. Most people evaluating Claude
+Code for ops work don't know this surface exists.
+
+### `.claude/hooks/kubectl-guard.sh` — the fail-closed backstop
+
+`permissions.deny` matches literal patterns; it doesn't understand `sudo kubectl
+delete`, `/usr/bin/kubectl delete`, or `kubectl --context prod delete`. The hook
+closes that gap by actually parsing the command: strip `sudo`/`env`/`time`
+wrappers, unwrap `sh -c`/`bash -c`, strip a leading absolute path off the binary,
+tokenize past flags to find the verb. Wired as a `PreToolUse` hook on the Bash
+tool, it fails closed on anything it can't confidently parse — missing `jq`,
+malformed JSON, or any shell metacharacter (`| ; & > < $( ) `` \`) in the command
+all exit 2 (block).
+
+### `CLAUDE.md` — states both walls honestly
+
+The generated `CLAUDE.md` doesn't let the agent assume the hook is the real
+protection. It says, in effect: cluster RBAC is the hard enforcement boundary that
+holds regardless of what this workspace's configuration does; the deny list plus
+hook is a best-effort, convenience-layer backstop scoped to Claude Code's own Bash
+tool, not containment.
+
+## 3. Provision the identity
+
+```bash
+./kubeops-cc/provision.sh
+```
+
+```text
+serviceaccount/aoh-kubeops-sresquad configured
+clusterrole.rbac.authorization.k8s.io/aoh-readonly configured
+clusterrolebinding.rbac.authorization.k8s.io/aoh-readonly-aoh-kubeops-sresquad unchanged
+Scoped read-only kubeconfig written to ./kubeops-cc/kubeconfig
+Verify the guardrail: kubectl --kubeconfig ./kubeops-cc/kubeconfig delete pod x  # expect Forbidden
+```
+
+Same script shape as the Hermes tutorial, because both adapters render it through
+the shared `src/aoh/adapters/_k8s.py` helpers — the RBAC surface an agent gets does
+not depend on which runtime materialized the workspace.
+
+## 4. The `can-i` matrix — real output
+
+```text
+$ kubectl --kubeconfig ./kubeops-cc/kubeconfig auth can-i get pods
+yes
+
+$ kubectl --kubeconfig ./kubeops-cc/kubeconfig auth can-i delete pods
+no
+
+$ kubectl --kubeconfig ./kubeops-cc/kubeconfig auth can-i get secrets
+no
+
+$ kubectl --kubeconfig ./kubeops-cc/kubeconfig auth can-i create pods
+no
+
+$ kubectl --kubeconfig ./kubeops-cc/kubeconfig auth can-i create pods/exec
+no
+```
+
+`get secrets` → `no` is the important one: the `ClusterRole` is an explicit
+resource allowlist, and `secrets` was deliberately left off it (see the
+[Runtime Adapters threat table](../reference/adapters#threat-model-hard-boundary-vs-best-effort-guardrail)
+for the full allow/exclude list). This holds identically whether the workspace was
+generated for Hermes, Claude Code, or Codex — it's a cluster-side guarantee, not a
+runtime one.
+
+## 5. The hook, blocking for real
+
+Same adversarial inputs used in the unit tests, run directly against the generated
+hook with real stdin and real exit codes:
+
+```text
+$ echo '{"tool_input": {"command": "kubectl delete pod x"}}' | bash .claude/hooks/kubectl-guard.sh
+kubectl-guard: kubectl delete is a mutation verb; blocked by guardrail
+EXIT: 2
+
+$ echo '{"tool_input": {"command": "kubectl --context prod delete pod x"}}' | bash .claude/hooks/kubectl-guard.sh
+kubectl-guard: kubectl delete is a mutation verb; blocked by guardrail
+EXIT: 2
+
+$ echo '{"tool_input": {"command": "/usr/bin/kubectl delete pod x"}}' | bash .claude/hooks/kubectl-guard.sh
+kubectl-guard: kubectl delete is a mutation verb; blocked by guardrail
+EXIT: 2
+
+$ echo '{"tool_input": {"command": "sh -c \"kubectl delete pod x\""}}' | bash .claude/hooks/kubectl-guard.sh
+kubectl-guard: kubectl delete is a mutation verb; blocked by guardrail
+EXIT: 2
+
+$ echo '{"tool_input": {"command": "kubectl get pods -A"}}' | bash .claude/hooks/kubectl-guard.sh
+EXIT: 0
+
+$ echo 'not json at all {{{' | bash .claude/hooks/kubectl-guard.sh
+kubectl-guard: stdin is not valid JSON; failing closed
+EXIT: 2
+```
+
+The `--context`-first form, the absolute path, and the `sh -c` wrapper are the same
+three forms that provably bypass Codex's execpolicy rules file (`{"matchedRules":[]}`,
+no `decision` at all — see the Codex section of
+[Runtime Adapters](../reference/adapters)). Claude Code's hook catches all three
+because it normalizes the command instead of matching a literal prefix. That's the
+under-known part: real command parsing beats prefix matching, and it's sitting in
+a shell script most people never look at.
+
+:::danger[Compound commands are blocked outright — read this before you script anything]
+The hook's shell-metacharacter check fires on **any** Bash tool call containing
+`|`, `;`, `&`, `>`, `<`, `$(...)`, backticks, or backslashes — whether or not
+kubectl is even involved. `kubectl get pods | grep Pending` is blocked exactly like
+`kubectl delete pod x`. A bare `bash script.sh` (no `-c`) is blocked too, because
+the hook only safely unwraps the `sh -c '<command>'` shape. This is deliberate
+fail-closed behavior, not a bug — the hook can't safely tokenize syntax it doesn't
+parse, so it blocks first. Call the pack's skill scripts directly
+(`./script.sh args`, already in `permissions.allow`) or split multi-stage shell
+work into separate single-command tool calls instead of chaining them.
+:::
+
+## 6. Launch it
+
+```bash
+./kubeops-cc/launch.sh
+```
+
+`launch.sh` exports `KUBECONFIG` to the scoped kubeconfig and execs `claude` from
+inside the workspace — so the settings, hook, and skills all apply automatically.
+Ask it to triage the cluster; ask it to delete a pod and watch it explain the
+denial as the guardrail working, per `CLAUDE.md`.
+
+## Why this shape
+
+- **Two walls, not one.** RBAC is the hard boundary — it holds no matter what
+  Claude Code does. `permissions.deny` + the hook is a second, best-effort wall in
+  front of it, and it's a genuinely useful one: it stops the mutation before the
+  cluster even sees the request, in the common case.
+- **The hook is the strongest guardrail among the three shipped runtimes** — real
+  command normalization instead of literal prefix matching — but it is still scoped
+  to commands routed through Claude Code's own Bash tool, and it fails closed
+  rather than guaranteeing containment of the whole host.
+- **RBAC still gets the last word.** If a command somehow reaches the cluster
+  despite the hook (a gap the hook doesn't have, but Codex's rules file does — see
+  [Runtime Adapters](../reference/adapters)), the API server still rejects it. The
+  guardrail reduces noise; the boundary is what makes "physically incapable" true.
+
+## Next
+
+[Safe, Read-Only Agents → Two walls, honestly labeled](../concepts/safe-agents#two-walls-honestly-labeled)
+has the full three-runtime comparison table and the flow diagram of a command
+passing through both walls.
+
+<Quiz questions={[
+  {
+    prompt: 'What is the ONE thing that makes Claude Code different from Codex and Hermes in this threat model?',
+    options: [
+      {text: 'Its configuration can express subcommand-level deny (permissions.deny) plus a fail-closed PreToolUse hook — the only runtime of the three that can', correct: true, explanation: 'Correct — Codex has execpolicy rules (prefix matching, no hook that can block a call) and Hermes has no kubectl-aware guardrail at all. Claude Code is the only one with both a deny config and a real command-normalizing hook.'},
+      {text: 'It is the only runtime with an RBAC-scoped identity', correct: false, explanation: 'All three adapters render the same scoped ServiceAccount + ClusterRole via the shared _k8s.py helpers — RBAC is identical across runtimes.'},
+      {text: 'It does not require provision.sh to be run', correct: false, explanation: 'provision.sh is required the same way for all three adapters when access is scoped — Claude Code is no exception.'},
+      {text: 'It grants read access to Secrets by default', correct: false, explanation: 'The opposite — auth can-i get secrets returns no for every adapter, because the ClusterRole allowlist excludes secrets regardless of runtime.'},
+    ],
+  },
+  {
+    prompt: 'In the live validation run, which three command forms bypass Codex\'s execpolicy rules but are caught by Claude Code\'s hook?',
+    options: [
+      {text: '--context-first invocations, absolute binary paths, and sh -c-wrapped commands', correct: true, explanation: 'Correct — verified with codex execpolicy check (all return {"matchedRules":[]}) and with the Claude Code hook directly (all exit 2, blocked).'},
+      {text: 'kubectl get, kubectl describe, and kubectl logs', correct: false, explanation: 'These are read verbs — both runtimes are supposed to allow them, and do.'},
+      {text: 'helm install, helm upgrade, and helm rollback', correct: false, explanation: 'Both the Codex rules file and the Claude Code deny list explicitly cover these — they are caught, not a gap.'},
+      {text: 'Any command run through provision.sh', correct: false, explanation: 'provision.sh is a setup script run once by a human, not a command the agent issues through either runtime\'s guardrail.'},
+    ],
+  },
+  {
+    prompt: 'What does the kubectl-guard.sh hook do when it receives malformed JSON on stdin?',
+    options: [
+      {text: 'Exits 2 (blocks) — it fails closed rather than falling through to allow', correct: true, explanation: 'Correct — "kubectl-guard: stdin is not valid JSON; failing closed", exit 2. Fail-closed is unconditional: missing jq, parse failure, and empty stdin all block too.'},
+      {text: 'Exits 0 (allows) because it cannot determine the command', correct: false, explanation: 'This is exactly the "fall through to allow on ambiguity" behavior the hook is designed never to do.'},
+      {text: 'Prompts the operator interactively for a decision', correct: false, explanation: 'The hook is non-interactive — it is a PreToolUse hook that returns an exit code, not a UI.'},
+      {text: 'Retries the tool call with a sanitized command', correct: false, explanation: 'The hook does not rewrite or retry commands — it only decides allow (exit 0) or block (exit 2).'},
+    ],
+  },
+  {
+    prompt: 'Why does the hook block a harmless command like `kubectl get pods | grep Pending`?',
+    options: [
+      {text: 'The hook\'s shell-metacharacter check is unconditional — any pipe, redirect, semicolon, or command substitution in ANY Bash call blocks, kubectl or not', correct: true, explanation: 'Correct — this is the documented compound-command caveat. The hook cannot safely tokenize commands containing shell constructs it does not parse, so it fails closed rather than risk missing a disguised mutation.'},
+      {text: 'grep is on the mutation verb list', correct: false, explanation: 'grep is not a kubectl/helm verb at all — it is not on any allow or deny list. The block is about the pipe character, not grep specifically.'},
+      {text: 'kubectl get pods is itself a mutation the hook misclassified', correct: false, explanation: 'kubectl get is squarely a read verb and is allowed on its own — the block is triggered by the | character, not the get verb.'},
+      {text: 'Claude Code disables all Bash tool calls by default', correct: false, explanation: 'defaultMode stays "default" (unlisted commands prompt, not block-by-default) — Bash calls are not disabled; this specific compound form is blocked by the hook\'s metacharacter check.'},
+    ],
+  },
+  {
+    prompt: 'Which of the following are true about RBAC vs. the Claude Code guardrail? (Select all that apply)',
+    multiSelect: true,
+    options: [
+      {text: 'RBAC is the hard enforcement boundary — it holds even if the hook or settings.json were removed entirely', correct: true, explanation: 'Right — the ClusterRole is checked by the Kubernetes API server independent of anything in the Claude Code workspace configuration.'},
+      {text: 'The guardrail (deny list + hook) can reduce noisy denials by stopping a mutation before it ever reaches the cluster', correct: true, explanation: 'Right — that is its actual value: fast, local feedback, in the common case, before a network round-trip to the API server.'},
+      {text: 'The guardrail guarantees containment of the whole host, including credentials outside this workspace', correct: false, explanation: 'False, and documented as such — the scoped kubeconfig is the workspace\'s default identity, not a sandbox. Host credential isolation is explicitly out of scope for all three adapters today.'},
+      {text: 'If the hook has a bug and fails to block a mutation, the request still fails at the cluster because of RBAC', correct: true, explanation: 'Right — this is the entire point of calling RBAC the boundary and the hook a guardrail. A guardrail bug is a degraded UX, not a security failure, because the boundary does not depend on the guardrail working correctly.'},
+    ],
+  },
+]} />

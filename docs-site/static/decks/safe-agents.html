@@ -267,7 +267,48 @@
   <div class="pageno">06</div>
 </section>
 
-<!-- ============ SLIDE 7 — THE DEMO ============ -->
+<!-- ============ SLIDE 7 — TWO WALLS ============ -->
+<section>
+  <h2 class="t">Two walls — only one is a boundary</h2>
+  <p class="s">Claude Code / Codex add a runtime guardrail in front of RBAC. Best effort, not enforcement.</p>
+  <svg viewBox="0 0 1100 340" role="img" aria-label="An arrow representing a kubectl delete command pierces a dashed best-effort runtime guardrail wall but is stopped by a solid RBAC boundary wall before reaching the API server">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.4">
+      <rect x="30" y="130" width="160" height="80" rx="10"/>
+    </g>
+    <text x="110" y="175" text-anchor="middle" class="lbl-sm">Agent</text>
+
+    <g filter="url(#rough)" fill="none" stroke="#757575" stroke-width="2.4" stroke-dasharray="10 7">
+      <line x1="380" y1="60" x2="380" y2="280"/>
+    </g>
+    <text x="380" y="45" text-anchor="middle" class="lbl-g" style="font-size:16px">runtime guardrail</text>
+    <text x="380" y="300" text-anchor="middle" class="lbl-g" style="font-size:15px">best effort</text>
+
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="3.2">
+      <line x1="650" y1="50" x2="650" y2="290"/>
+    </g>
+    <text x="650" y="35" text-anchor="middle" class="lbl-b" style="font-size:16px">cluster RBAC</text>
+    <text x="650" y="308" text-anchor="middle" class="lbl-good" style="font-size:15px">boundary</text>
+
+    <g filter="url(#rough)" fill="none" stroke="#8a1f1f" stroke-width="2.6" stroke-linecap="round">
+      <path d="M195,170 L640,170" marker-end="url(#ah)"/>
+    </g>
+    <text x="400" y="150" text-anchor="middle" class="lbl-bad" style="font-family:'Courier New',monospace;font-size:16px">kubectl delete pod x</text>
+
+    <g filter="url(#rough)" fill="none" stroke="#1f6b2e" stroke-width="2.6">
+      <circle cx="650" cy="170" r="16"/>
+      <path d="M642,170 L648,178 L660,160" stroke-width="2.4"/>
+    </g>
+
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.4">
+      <ellipse cx="960" cy="170" rx="100" ry="66"/>
+    </g>
+    <text x="960" y="176" text-anchor="middle" class="lbl-sm">API server</text>
+  </svg>
+  <p class="takeaway">The dashed wall may catch it early (nice) or may not (documented gaps) — the solid wall catches it every time, because it's the API server checking an identity, not a runtime reading a string.</p>
+  <div class="pageno">07</div>
+</section>
+
+<!-- ============ SLIDE 8 — THE DEMO ============ -->
 <section>
   <h2 class="t">The demo — live and unscripted</h2>
   <p class="s">kind-sresquad-demo cluster · scoped kubeconfig · a real kubectl delete.</p>
@@ -286,7 +327,7 @@
   </svg>
   <p class="takeaway">No agent involved in this proof — just the same guardrail, checked directly against the cluster.</p>
   <p class="credit"><b>Gourav Shah</b> &nbsp;·&nbsp; Initcron AI / OpsFlow LLC / School of DevOps</p>
-  <div class="pageno">07</div>
+  <div class="pageno">08</div>
 </section>
 
 </div></div>

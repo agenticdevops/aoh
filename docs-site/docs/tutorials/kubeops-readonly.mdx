@@ -60,7 +60,10 @@ consistent with the rule that AOH organizes and adapts, but never executes. Runn
 This creates:
 
 - a `ServiceAccount` named `aoh-kubeops-sresquad`
-- a `ClusterRole` named `aoh-readonly` granting `get`/`list`/`watch` on everything
+- a `ClusterRole` named `aoh-readonly` granting `get`/`list`/`watch` on a fixed
+  resource **allowlist** (nodes, pods, pods/log, events, endpoints, services,
+  PVCs/PVs, namespaces, deployments/replicasets/daemonsets/statefulsets, jobs/
+  cronjobs, metrics) — not a wildcard, and `secrets` is not on that list
 - a binding of the two
 - a scoped `kubeconfig` written next to the script, authenticating as that
   `ServiceAccount` rather than your own credentials
@@ -121,10 +124,13 @@ as step 3, the API server denies it the same way, and the role's `SOUL.md`
 report that denial as the guardrail working — not as an error to route around.
 
 :::tip[Honesty note]
-Read-only is not read-nothing. `get`/`list`/`watch` on everything includes every
-`Secret` in the cluster — acceptable for a local `kind` demo, not acceptable for
-production. A production binding should tighten the `ClusterRole`: for example, an
-aggregated `view` role plus explicit resource lists that exclude `secrets`.
+Read-only is not read-nothing, but the generated `ClusterRole` is an explicit
+resource allowlist, not a wildcard grant — `secrets`, `configmaps`, `nodes/proxy`,
+`pods/exec`, `pods/attach`, `pods/portforward`, `serviceaccounts/token`, RBAC
+objects, and `certificatesigningrequests` are all deliberately excluded, shared
+across every adapter via `src/aoh/adapters/_k8s.py`. Live-verified against a real
+cluster: `kubectl --kubeconfig $KC auth can-i get secrets` → `no`. Full matrix in
+[`docs/demos/adapter-validation-2026-07-16.md`](https://github.com/agenticdevops/aoh/blob/main/docs/demos/adapter-validation-2026-07-16.md).
 :::
 
 ## Why this shape
@@ -132,9 +138,12 @@ aggregated `view` role plus explicit resource lists that exclude `secrets`.
 - **Separate agent identity** — audit logs distinguish the agent's actions from
   anything a human does directly with `kubectl`.
 - **Enforcement lives in the target platform**, not the agent runtime — the same
-  RBAC identity and guardrail carry over unchanged if you point a Claude Code or
-  Codex adapter at this pack later; runtime knowledge never leaks into the guardrail
-  itself.
+  RBAC identity and guardrail carry over unchanged to the Claude Code and Codex
+  adapters, both shipped now, pointed at this same pack; runtime knowledge never
+  leaks into the guardrail itself. See
+  [A Read-Only Kubernetes Agent with Claude Code](./kubeops-claude-code) for the
+  Claude Code version, including its extra `permissions.deny` + hook guardrail
+  layer.
 - **This was verified, not assumed**: Hermes's own command guardrails have no
   `kubectl` awareness at all — a hardcoded pattern list, no subcommand allow/deny
   configuration. Left ungoverned, `kubectl delete` would run unprompted. The cluster
