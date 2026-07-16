@@ -26,6 +26,7 @@ const sidebars: SidebarsConfig = {
         'tutorials/build-a-pack',
         'tutorials/kubeops-readonly',
         'tutorials/kubeops-claude-code',
+        'tutorials/kubeops-codex',
         'tutorials/bindings-inventory',
       ],
     },
