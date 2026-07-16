@@ -7,6 +7,8 @@ versioning: [SemVer](https://semver.org/).
 
 ### Added
 
+- Documentation site (Docusaurus) — Concepts/Getting Started/Tutorials/Reference +
+  Field Notes blog; GH Pages deploy.
 - `collections/core/kubeops` pack: pod-crashloop-triage, pending-pod-triage,
   node-notready-triage, k8s-service-health-report skills + `kubeops-copilot` role.
 - Minimal `kind: Binding` (role × target, open target map), loaded standalone from

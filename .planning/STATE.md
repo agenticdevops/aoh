@@ -11,6 +11,9 @@
   hermes.py, CLI → `aoh install --runtime <x>`. Live RBAC demo done 2026-07-15
   (provision + Forbidden proof on kind-sresquad-demo); agent-chat walkthrough
   (docs/demos/kubeops-readonly.md §4) still open for user
+- Docs site (`docs-site/`) shipped 2026-07-16, not yet deployed — Pages needs to be
+  enabled and `.github/workflows/docs-deploy.yml` pushed with a `workflow`-scoped token
+  (see that session log entry)
 
 ## Repo facts
 
@@ -20,6 +23,26 @@
 - Validate: `uv run aoh validate <pack>`
 
 ## Session log
+
+### 2026-07-16 — docs site built + deploy wired (Docusaurus, subagent-driven development)
+- Built via subagent-driven development: 7 tasks, each with a review, plus a final
+  whole-branch review — same loop AOH uses to build its own packs
+- `docs-site/` scaffolded (Docusaurus + TypeScript, `onBrokenLinks: 'throw'` build gate)
+  with Concepts, Getting Started, Tutorials, and Reference sections — every page traces
+  to a real repo source file; roadmap-only features (drift status/sync/capture,
+  `install --runtime`, non-Hermes adapters) explicitly marked "planned," not documented
+  as shipped
+- 3 hand-drawn reveal.js decks embedded via a custom `Slides` component: what-is-aoh,
+  core-model, safe-agents
+- Interactive `Quiz` component used on tutorial pages; mermaid diagrams enabled
+- Field Notes blog live at `/field-notes`: 3 grounded seed posts (workflow-kind
+  collapse, the read-only kubernetes RBAC proof + the shell-injection fix caught in
+  review, and this docs site's own build) + `tags.yml`
+- Real landing `docs/intro.mdx`: 60-second pitch, deck embed, start-here grid
+- GH Pages deploy workflow added (`.github/workflows/docs-deploy.yml`); NOT pushed —
+  needs a `workflow`-scoped token and Settings → Pages → Source = GitHub Actions
+  before the first Actions run publishes to https://agenticdevops.github.io/aoh/
+- Build verified: `npm --prefix docs-site run build` exits 0, zero broken links
 
 ### 2026-07-15 — kubeops pack + minimal Binding shipped (phase 2.5, subagent-driven development)
 - Executed via subagent-driven development: 4 tasks, each with a clean review

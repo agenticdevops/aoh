@@ -22,6 +22,7 @@ Pack format + validator + Hermes adapter producing launchable role profiles.
 | 6 | Eval runner | Run pack evals against generated profiles; gate for cheap-model trust | pending |
 | 7 | Binding layer | Full inventory pattern: binding groups, shared target vars, multi-target fan-out; site repo layout (minimal Binding shipped in 2.5) | pending |
 | 8 | import-runbook | Skill factory: runbook file → SKILL.md + scripts + eval via frontier model | pending |
+| — | Docs site | Docusaurus site (`docs-site/`) — Concepts/Getting Started/Tutorials/Reference sections, 3 hand-drawn reveal.js decks, Field Notes blog, GH Pages deploy workflow | ✅ done |
 
 Phase order rationale: 1–2 shrink concept count before spec hardens; 3 must precede any
 second adapter; 4 before more installs exist in the wild; 5 proves the neutrality claim;

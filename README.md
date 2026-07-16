@@ -2,6 +2,10 @@
 
 **Superpowers for Ops.** AOH is an engine-neutral harness for building, sharing, and running agentic DevOps, SRE, Platform Engineering, and MLOps capabilities.
 
+**Docs:** the full docs site (Concepts, Getting Started, Tutorials, Reference, and the
+Field Notes blog) lives in [`docs-site/`](docs-site/) and is published at
+[https://agenticdevops.github.io/aoh/](https://agenticdevops.github.io/aoh/).
+
 Think of it as an early **Ansible-for-agentic-ops** pattern:
 
 - Ansible has inventories, roles, and playbooks.
