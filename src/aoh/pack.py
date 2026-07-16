@@ -54,6 +54,7 @@ class Binding:
     name: str
     role: str
     target: dict[str, Any]
+    access: str = "scoped"
 
 
 def load_pack(root: Path | str) -> Pack:
@@ -172,7 +173,11 @@ def load_binding(path: Path | str) -> Binding:
     if not isinstance(target, dict):
         raise PackError(f"Binding `{name}` spec.target must be a mapping")
 
-    return Binding(name=name, role=str(spec["role"]), target=target)
+    access = str(spec.get("access", "scoped"))
+    if access not in {"scoped", "inherit"}:
+        raise PackError(f"Binding `{name}` spec.access must be scoped or inherit")
+
+    return Binding(name=name, role=str(spec["role"]), target=target, access=access)
 
 
 def validate_pack(pack: Pack) -> None:

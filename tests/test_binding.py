@@ -133,10 +133,11 @@ def test_install_hermes_agent_with_binding_materializes_rbac_artifacts(tmp_path:
 
     assert provision.exists()
     provision_text = provision.read_text(encoding="utf-8")
-    assert 'CONTEXT="kind-sresquad-demo"' in provision_text
-    assert 'SA_NAME="aoh-kubeops-sresquad"' in provision_text
+    assert "CONTEXT=kind-sresquad-demo" in provision_text
+    assert "SA_NAME=aoh-kubeops-sresquad" in provision_text
     assert "aoh-readonly" in provision_text
     assert '"get", "list", "watch"' in provision_text
+    assert "secrets" not in provision_text
     assert provision.stat().st_mode & 0o111, "provision.sh must be executable"
 
     assert 'export KUBECONFIG="$(cd "$(dirname "$0")" && pwd)/kubeconfig"' in launch
