@@ -12,7 +12,7 @@ kubernetes cluster to triage, while making it **physically incapable** of mutati
 that cluster. Not "instructed not to." Incapable: the API server itself rejects the
 request, no matter what the agent sends.
 
-This mirrors [`docs/demos/kubeops-readonly.md`](https://github.com/agenticdevops/aoh)
+This mirrors [`docs/demos/kubeops-readonly.md`](https://github.com/agenticdevops/aoh/blob/main/docs/demos/kubeops-readonly.md)
 in the repository; run it yourself if you have a `kind` cluster with context
 `kind-sresquad-demo`, admin access, and `hermes` installed. Everything below can be
 read without a cluster too — the commands and the RBAC-denial proof are copied
@@ -76,7 +76,7 @@ can see the enforcement is real and not just an agent being polite:
 ```bash
 KC=~/.hermes/profiles/kubeops-sresquad/kubeconfig
 kubectl --kubeconfig "$KC" get pods -A          # works
-kubectl --kubeconfig "$KC" delete pod -n kube-system --all   # Forbidden
+kubectl --kubeconfig "$KC" delete pod coredns-668d6bf9bc-kw88m -n kube-system   # Forbidden
 kubectl --kubeconfig "$KC" auth can-i delete pods            # no
 ```
 
@@ -84,7 +84,7 @@ The `get` succeeds because the `ClusterRole` grants it. The `delete` is rejected
 the Kubernetes API server itself, with output like:
 
 ```text
-Error from server (Forbidden): pods "coredns-abc123" is forbidden: User "system:serviceaccount:default:aoh-kubeops-sresquad" cannot delete resource "pods" in API group "" in the namespace "kube-system"
+Error from server (Forbidden): pods "coredns-668d6bf9bc-kw88m" is forbidden: User "system:serviceaccount:default:aoh-kubeops-sresquad" cannot delete resource "pods" in API group "" in the namespace "kube-system"
 ```
 
 And `auth can-i` confirms the same thing without attempting anything destructive —
