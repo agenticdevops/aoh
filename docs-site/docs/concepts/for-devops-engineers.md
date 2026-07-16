@@ -19,7 +19,7 @@ and adapts. It never executes. Runtimes execute.
 | Ansible module / task | Skill (+ scripts) | The actual unit of work |
 | Ansible playbook run | Adapter install | Compiles the pack into a runnable profile |
 | Terraform provider | Runtime adapter | One model, many backends |
-| `terraform plan` | `aoh validate` + eval gate | Check before you run |
+| `terraform plan` | `aoh validate` (+ evals, runner planned) | Check before you run |
 | Terraform state drift | Pack-repo-as-source-of-truth (planned drift model) | Copy-install = fork; on the roadmap |
 | Helm values | ModelProfile / RuntimeRequirement | Environment-specific knobs |
 
@@ -51,9 +51,10 @@ graph LR
   stays generic, the inventory (or binding) carries the environment-specific detail
   — which cluster, which namespace, which account.
 - **`terraform plan` / `aoh validate`** — both are a check-before-you-run step.
-  `aoh validate` checks referential integrity across a pack (skills exist, role
-  references resolve, evals point at real skills); the eval gate checks whether a
-  cheap model can be trusted to run a given skill, before it gets to.
+  `aoh validate` checks referential integrity across a pack today (skills exist, role
+  references resolve, evals point at real skills). The eval — a declared scenario
+  plus success criteria — is what will gate whether a cheap model can be trusted to
+  run a skill, once an eval runner lands (on the roadmap).
 
 ## Where the analogy breaks
 
@@ -68,8 +69,8 @@ much closer to the classic **dotfiles-drift** or **Helm-values-drift** problem t
 idempotent Ansible convergence.
 
 This is exactly why the "Terraform state drift" row above is marked planned: AOH's
-answer is to keep the pack's git repo as the single source of truth and build a
-drift model on top of it (status/sync/capture-style commands), so an agent's
+intended model is to keep the pack's git repo as the single source of truth and build
+a drift-capture loop on top of it (status/sync/capture-style commands), so an agent's
 in-the-field improvement has a path back into the shared pack instead of evaporating
 on the next install. That model isn't built yet — today, install is a straightforward
 copy — but it's the direction the drift decision points, and it's the reason AOH
