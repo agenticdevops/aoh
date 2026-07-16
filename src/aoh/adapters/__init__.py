@@ -7,4 +7,5 @@ sees the full registry.
 """
 
 from aoh.adapters import claude_code as _claude_code  # noqa: F401
+from aoh.adapters import codex as _codex  # noqa: F401
 from aoh.adapters import hermes as _hermes  # noqa: F401
