@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Containers for GenAI &amp; Agentic AI — Introduction</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/reveal.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/theme/white.min.css" id="theme">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap">
+
+<style>
+  :root{
+    --ink:#1e1e1e;
+    --gray:#757575;
+    --paper:#ffffff;
+  }
+  .reveal{ font-family:'Patrick Hand', cursive; color:var(--ink); }
+  .reveal .slides{ text-align:center; }
+  .reveal .slides section{ position:absolute; inset:0; box-sizing:border-box; flex-direction:column; justify-content:center; padding:20px 48px 42px; overflow:hidden; }
+  .reveal .slides > section.present{ display:flex; }
+
+  .reveal h1,.reveal h2,.reveal h3{
+    font-family:'Patrick Hand', cursive;
+    color:var(--ink);
+    text-transform:none;
+    font-weight:700;
+    letter-spacing:0;
+    margin:0 0 6px 0;
+    line-height:1.15;
+  }
+  .reveal h2.t{ font-size:1.75em; }
+  .reveal p.s{ font-size:0.95em; color:var(--gray); margin:0 0 8px 0; }
+  .reveal p.takeaway{
+    font-size:0.92em; color:var(--gray);
+    margin:10px auto 0; max-width:1050px;
+  }
+  .reveal p.takeaway::before{ content:"\2192  "; color:var(--ink); font-weight:700; }
+  .reveal svg{ width:100%; flex:1 1 0; min-height:0; max-height:58%; display:block; margin:8px auto 0; }
+  .reveal .kicker{ font-size:.8em; color:var(--gray); letter-spacing:2px; }
+  .reveal .credit{ font-size:.85em; color:var(--gray); margin-top:16px; }
+  .reveal .credit b{ color:var(--ink); font-weight:700; }
+  .reveal .pageno{ position:absolute; bottom:14px; right:22px; font-size:.6em; color:#bdbdbd; }
+  .reveal .slide-number{ font-family:'Patrick Hand',cursive; }
+
+  /* SVG typographic helpers */
+  text{ font-family:'Patrick Hand', cursive; }
+  .lbl{ fill:var(--ink); font-size:21px; }
+  .lbl-sm{ fill:var(--ink); font-size:17px; }
+  .lbl-g{ fill:var(--gray); font-size:17px; }
+  .lbl-b{ fill:var(--ink); font-size:23px; font-weight:700; }
+  .num{ fill:var(--ink); font-size:24px; font-weight:700; }
+</style>
+</head>
+<body>
+
+<!-- shared SVG defs: hand-drawn wobble filter + arrowhead -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <filter id="rough" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="2" seed="7" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="2.6" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <marker id="ah" markerWidth="14" markerHeight="14" refX="8" refY="5" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L10,5 L0,10" fill="none" stroke="#1e1e1e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="ahg" markerWidth="14" markerHeight="14" refX="8" refY="5" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L10,5 L0,10" fill="none" stroke="#757575" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+</svg>
+
+<div class="reveal"><div class="slides">
+
+<!-- ============ SLIDE 1 — TITLE ============ -->
+<section data-auto-animate>
+  <p class="kicker">SCHOOL OF DEVOPS &amp; AI &nbsp;·&nbsp; MLOps / LLMOps</p>
+  <h2 class="t" style="font-size:2.3em">Containers for GenAI &amp; Agentic AI</h2>
+  <p class="s" style="font-size:1.2em">The Open-Source Way</p>
+  <svg viewBox="0 0 1100 380" role="img" aria-label="A shipping container holding AI, loading onto any runtime">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="3" stroke-linecap="round">
+      <!-- container body -->
+      <rect x="360" y="120" width="380" height="180" rx="10"/>
+      <!-- corrugations -->
+      <line x1="410" y1="130" x2="410" y2="290"/>
+      <line x1="460" y1="130" x2="460" y2="290"/>
+      <line x1="510" y1="130" x2="510" y2="290"/>
+      <line x1="590" y1="130" x2="590" y2="290"/>
+      <line x1="640" y1="130" x2="640" y2="290"/>
+      <line x1="690" y1="130" x2="690" y2="290"/>
+      <!-- label plate -->
+      <rect x="512" y="185" width="76" height="50" rx="6"/>
+      <!-- ground line -->
+      <line x1="230" y1="320" x2="870" y2="320"/>
+      <!-- wheels of the "any runtime" truck feel -->
+      <circle cx="430" cy="345" r="20"/>
+      <circle cx="670" cy="345" r="20"/>
+    </g>
+    <text x="550" y="218" text-anchor="middle" class="lbl-b">AI</text>
+    <text x="550" y="360" text-anchor="middle" class="lbl-g">runs identically on any OCI runtime</text>
+  </svg>
+  <p class="credit"><b>Gourav Shah</b> &nbsp;·&nbsp; 2 Full Days &nbsp;·&nbsp; Intermediate → Advanced &nbsp;·&nbsp; Hands-on</p>
+  <div class="pageno">01</div>
+</section>
+
+<!-- ============ SLIDE 2 — THE BIG IDEA ============ -->
+<section>
+  <h2 class="t">One real system — built one step per module</h2>
+  <p class="s">You don't learn tools in isolation. You ship something real, one block at a time.</p>
+  <svg viewBox="0 0 1100 380" role="img" aria-label="A staircase of modules rising from a bare model call to a shipped platform">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.6" stroke-linecap="round">
+      <rect x="70"  y="300" width="110" height="40"  rx="6"/>
+      <rect x="200" y="265" width="110" height="75"  rx="6"/>
+      <rect x="330" y="230" width="110" height="110" rx="6"/>
+      <rect x="460" y="195" width="110" height="145" rx="6"/>
+      <rect x="590" y="160" width="110" height="180" rx="6"/>
+      <rect x="720" y="120" width="110" height="220" rx="6"/>
+      <rect x="850" y="80"  width="150" height="260" rx="6"/>
+      <path d="M40,345 L1010,345"/>
+    </g>
+    <text x="125" y="325" text-anchor="middle" class="lbl-sm">model</text>
+    <text x="255" y="308" text-anchor="middle" class="lbl-sm">serve</text>
+    <text x="385" y="290" text-anchor="middle" class="lbl-sm">package</text>
+    <text x="515" y="272" text-anchor="middle" class="lbl-sm">RAG</text>
+    <text x="645" y="255" text-anchor="middle" class="lbl-sm">agent</text>
+    <text x="775" y="235" text-anchor="middle" class="lbl-sm">crew</text>
+    <text x="925" y="210" text-anchor="middle" class="lbl-b">Platform</text>
+    <text x="925" y="240" text-anchor="middle" class="lbl-sm">shipped</text>
+  </svg>
+  <p class="takeaway">From a bare model call to a shipped multi-agent platform — nothing thrown away along the way.</p>
+  <div class="pageno">02</div>
+</section>
+
+<!-- ============ SLIDE 3 — THE BIG PIVOT ============ -->
+<section>
+  <h2 class="t">Container-native, not Docker-native</h2>
+  <p class="s">Docker Desktop is now paid for larger orgs. So we build on the open standard instead.</p>
+  <svg viewBox="0 0 1100 400" role="img" aria-label="Docker-proprietary tools on the left replaced by open-source universal tools on the right">
+    <!-- left: proprietary (dashed = the thing we leave behind) -->
+    <g filter="url(#rough)" fill="none" stroke="#757575" stroke-width="2.4" stroke-dasharray="9 7" stroke-linecap="round">
+      <rect x="60" y="60" width="360" height="300" rx="12"/>
+    </g>
+    <text x="240" y="95" text-anchor="middle" class="lbl-g" style="font-size:19px">Docker-proprietary (2025)</text>
+    <g fill="var(--gray)" font-size="18px" text-anchor="start">
+      <text x="95" y="145">Docker Desktop (paid)</text>
+      <text x="95" y="190">Docker Model Runner</text>
+      <text x="95" y="235">Docker MCP Gateway</text>
+      <text x="95" y="280">Docker Scout</text>
+      <text x="95" y="325">Docker Offload (GPU)</text>
+    </g>
+
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.2" stroke-linecap="round">
+      <path d="M445,210 L640,210" marker-end="url(#ah)"/>
+    </g>
+    <text x="542" y="196" text-anchor="middle" class="lbl-g">swap for</text>
+
+    <!-- right: open source -->
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.8" stroke-linecap="round">
+      <rect x="670" y="60" width="370" height="300" rx="12"/>
+    </g>
+    <text x="855" y="95" text-anchor="middle" class="lbl" style="font-size:19px;font-weight:700">Open-source &amp; universal</text>
+    <g fill="var(--ink)" font-size="18px" text-anchor="start">
+      <text x="705" y="145">Colima / Rancher / Podman</text>
+      <text x="705" y="190">Ollama · vLLM · llama.cpp</text>
+      <text x="705" y="235">ToolHive (MCP gateway)</text>
+      <text x="705" y="280">Trivy · Syft · Cosign</text>
+      <text x="705" y="325">Any NVIDIA / cloud GPU</text>
+    </g>
+  </svg>
+  <p class="takeaway">OCI + the Compose Spec run identically on every runtime. Docker becomes one option, never a requirement.</p>
+  <div class="pageno">03</div>
+</section>
+
+<!-- ============ SLIDE 4 — OBJECTIVES ============ -->
+<section>
+  <h2 class="t">What you'll be able to do</h2>
+  <p class="s">By the end of two days — as a DevOps or app/AI developer.</p>
+  <svg viewBox="0 0 1100 400" role="img" aria-label="Five learning objectives listed as numbered rows">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.4">
+      <circle cx="120" cy="70"  r="24"/>
+      <circle cx="120" cy="140" r="24"/>
+      <circle cx="120" cy="210" r="24"/>
+      <circle cx="120" cy="280" r="24"/>
+      <circle cx="120" cy="350" r="24"/>
+    </g>
+    <g class="num" text-anchor="middle">
+      <text x="120" y="78">1</text><text x="120" y="148">2</text>
+      <text x="120" y="218">3</text><text x="120" y="288">4</text>
+      <text x="120" y="358">5</text>
+    </g>
+    <g class="lbl" text-anchor="start">
+      <text x="170" y="78">Run any GenAI / agentic stack on any OCI runtime — no paid Docker Desktop</text>
+      <text x="170" y="148">Serve local LLMs with Ollama &amp; vLLM behind one OpenAI-compatible API</text>
+      <text x="170" y="218">Handle the Apple-Silicon vs Windows GPU reality with the right pattern</text>
+      <text x="170" y="288">Build naive RAG → Agentic RAG → tool-using agent → multi-agent crew</text>
+      <text x="170" y="358">Package models as OCI artifacts, then secure &amp; ship with open tools</text>
+    </g>
+  </svg>
+  <p class="takeaway">Everything containerized, portable, and reproducible — using only open-source tooling.</p>
+  <div class="pageno">04</div>
+</section>
+
+<!-- ============ SLIDE 5 — TWO USE CASES ============ -->
+<section>
+  <h2 class="t">Two connected use cases</h2>
+  <p class="s">A clean GenAI app and a real agentic system — connected at the tool boundary.</p>
+  <svg viewBox="0 0 1100 400" role="img" aria-label="Use Case A the Docs Assistant feeds into Use Case B the Support Agent and Incident Crew">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.8" stroke-linecap="round">
+      <rect x="70" y="120" width="380" height="200" rx="12"/>
+      <rect x="650" y="120" width="380" height="200" rx="12"/>
+      <path d="M455,220 L645,220" marker-end="url(#ah)"/>
+    </g>
+    <text x="260" y="100" text-anchor="middle" class="lbl-g">DAY 1 · GenAI</text>
+    <text x="260" y="185" text-anchor="middle" class="lbl-b">Docs Assistant</text>
+    <text x="260" y="222" text-anchor="middle" class="lbl">Naive RAG over</text>
+    <text x="260" y="252" text-anchor="middle" class="lbl">Acme's runbooks</text>
+    <text x="260" y="295" text-anchor="middle" class="lbl-g">Ollama · ChromaDB · Streamlit</text>
+
+    <text x="840" y="100" text-anchor="middle" class="lbl-g">DAY 2 · Agentic</text>
+    <text x="840" y="185" text-anchor="middle" class="lbl-b">Support Agent →</text>
+    <text x="840" y="217" text-anchor="middle" class="lbl-b">Incident Crew</text>
+    <text x="840" y="255" text-anchor="middle" class="lbl">single agent → multi-agent</text>
+    <text x="840" y="295" text-anchor="middle" class="lbl-g">MCP tools · ToolHive · CrewAI</text>
+
+    <text x="550" y="200" text-anchor="middle" class="lbl-g">used as</text>
+    <text x="550" y="245" text-anchor="middle" class="lbl-g">a tool</text>
+  </svg>
+  <p class="takeaway">Use Case B <em>uses</em> Use Case A as one of its tools — so skills compound instead of forming one giant tangle.</p>
+  <div class="pageno">05</div>
+</section>
+
+<!-- ============ SLIDE 6 — INTELLIGENCE PROGRESSION ============ -->
+<section>
+  <h2 class="t">The intelligence progression</h2>
+  <p class="s">Introduced the way teams actually adopt AI — each pattern when it earns its keep.</p>
+  <svg viewBox="0 0 1100 320" role="img" aria-label="A left to right flow: Naive RAG to Agentic RAG to tool-using agent to multi-agent crew">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.6" stroke-linecap="round">
+      <rect x="40"  y="120" width="210" height="90" rx="10"/>
+      <rect x="300" y="120" width="210" height="90" rx="10"/>
+      <rect x="560" y="120" width="210" height="90" rx="10"/>
+      <rect x="820" y="120" width="240" height="90" rx="10"/>
+      <path d="M255,165 L295,165" marker-end="url(#ah)"/>
+      <path d="M515,165 L555,165" marker-end="url(#ah)"/>
+      <path d="M775,165 L815,165" marker-end="url(#ah)"/>
+    </g>
+    <text x="145" y="160" text-anchor="middle" class="lbl">Naive</text>
+    <text x="145" y="188" text-anchor="middle" class="lbl">RAG</text>
+    <text x="405" y="160" text-anchor="middle" class="lbl">Agentic</text>
+    <text x="405" y="188" text-anchor="middle" class="lbl">RAG</text>
+    <text x="665" y="160" text-anchor="middle" class="lbl">Tool-using</text>
+    <text x="665" y="188" text-anchor="middle" class="lbl">agent</text>
+    <text x="940" y="160" text-anchor="middle" class="lbl">Multi-agent</text>
+    <text x="940" y="188" text-anchor="middle" class="lbl">crew</text>
+    <text x="550" y="255" text-anchor="middle" class="lbl-g">simple &amp; predictable  ————————————→  capable &amp; complex</text>
+  </svg>
+  <p class="takeaway">You learn not just <em>how</em> each pattern works, but <em>when</em> it's the right one to reach for.</p>
+  <div class="pageno">06</div>
+</section>
+
+<!-- ============ SLIDE 7 — THE BUILD LADDER ============ -->
+<section>
+  <h2 class="t">The build ladder — one step per module</h2>
+  <p class="s">Each module adds exactly one rung to the same growing system.</p>
+  <svg viewBox="0 0 1100 430" role="img" aria-label="Modules M1 through M8 and a capstone, each building one step">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.2">
+      <rect x="60"  y="40"  width="470" height="46" rx="8"/>
+      <rect x="60"  y="96"  width="470" height="46" rx="8"/>
+      <rect x="60"  y="152" width="470" height="46" rx="8"/>
+      <rect x="60"  y="208" width="470" height="46" rx="8"/>
+      <rect x="570" y="40"  width="470" height="46" rx="8"/>
+      <rect x="570" y="96"  width="470" height="46" rx="8"/>
+      <rect x="570" y="152" width="470" height="46" rx="8"/>
+      <rect x="570" y="208" width="470" height="46" rx="8"/>
+      <rect x="315" y="270" width="470" height="52" rx="8"/>
+    </g>
+    <g class="lbl-sm" text-anchor="start">
+      <text x="78" y="69">M1 · Runtime + a model responding</text>
+      <text x="78" y="125">M2 · The OpenAI-compatible endpoint</text>
+      <text x="78" y="181">M3 · Endpoint scaled with vLLM</text>
+      <text x="78" y="237">M4 · Model versioned as OCI artifact</text>
+      <text x="588" y="69">M5 · Docs Assistant — naive RAG</text>
+      <text x="588" y="125">M6 · Declarative Agentic-RAG agent</text>
+      <text x="588" y="181">M7 · Incident Crew — multi-agent</text>
+      <text x="588" y="237">M8 · Hardened: guardrails · SBOM · sign</text>
+    </g>
+    <text x="550" y="303" text-anchor="middle" class="lbl-b">Capstone · The platform shipped end-to-end</text>
+    <text x="285" y="360" text-anchor="middle" class="lbl-g">← DAY 1 · Serve &amp; Package</text>
+    <text x="805" y="360" text-anchor="middle" class="lbl-g">DAY 2 · RAG → Agentic → Ship →</text>
+  </svg>
+  <p class="takeaway">M3B (LoRA/QLoRA fine-tuning) is an optional bonus rung for cohorts that want model customization.</p>
+  <div class="pageno">07</div>
+</section>
+
+<!-- ============ SLIDE 8 — THE GPU CONSTRAINT ============ -->
+<section>
+  <h2 class="t">The one constraint that shapes every lab</h2>
+  <p class="s">Apple Silicon can't expose its Metal GPU to a container. So don't fight it — wire around it.</p>
+  <svg viewBox="0 0 1100 400" role="img" aria-label="On Mac the model server runs native while the app, agent, tools and vector DB run in a container connecting over host.docker.internal">
+    <!-- host machine boundary -->
+    <g filter="url(#rough)" fill="none" stroke="#757575" stroke-width="2.2" stroke-dasharray="4 6">
+      <rect x="40" y="50" width="1020" height="320" rx="16"/>
+    </g>
+    <text x="70" y="80" class="lbl-g" text-anchor="start">Your Mac (host)</text>
+
+    <!-- native model server -->
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="3">
+      <rect x="90" y="150" width="330" height="150" rx="12"/>
+    </g>
+    <text x="255" y="205" text-anchor="middle" class="lbl-b">Model Server</text>
+    <text x="255" y="240" text-anchor="middle" class="lbl">Ollama — NATIVE</text>
+    <text x="255" y="272" text-anchor="middle" class="lbl-g">Metal GPU + unified memory</text>
+
+    <!-- container boundary holding everything else -->
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.6" stroke-dasharray="10 6">
+      <rect x="620" y="120" width="400" height="210" rx="12"/>
+    </g>
+    <text x="820" y="150" text-anchor="middle" class="lbl-g">Containers</text>
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.2">
+      <rect x="650" y="170" width="160" height="60" rx="8"/>
+      <rect x="835" y="170" width="160" height="60" rx="8"/>
+      <rect x="650" y="250" width="160" height="60" rx="8"/>
+      <rect x="835" y="250" width="160" height="60" rx="8"/>
+    </g>
+    <g class="lbl-sm" text-anchor="middle">
+      <text x="730" y="206">App</text>
+      <text x="915" y="206">Agent</text>
+      <text x="730" y="286">Tools</text>
+      <text x="915" y="286">Vector DB</text>
+    </g>
+
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.2" stroke-linecap="round">
+      <path d="M615,225 L425,225" marker-end="url(#ah)"/>
+    </g>
+    <text x="520" y="210" text-anchor="middle" class="lbl-g">host.docker.internal</text>
+    <text x="520" y="248" text-anchor="middle" class="lbl-g">:11434</text>
+  </svg>
+  <p class="takeaway">On Mac: serve the model natively, containerize everything else. On Windows + NVIDIA the server <em>can</em> live in a container.</p>
+  <div class="pageno">08</div>
+</section>
+
+<!-- ============ SLIDE 9 — WALL SOCKET ANALOGY ============ -->
+<section>
+  <h2 class="t">One contract: the OpenAI-compatible endpoint</h2>
+  <p class="s">Think of it as a wall socket — swap the power station behind it and your appliance never notices.</p>
+  <svg viewBox="0 0 1100 360" role="img" aria-label="Swappable serving engines behind one OpenAI-compatible socket that the app plugs into">
+    <!-- engines -->
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.4">
+      <rect x="70" y="70"  width="200" height="60" rx="8"/>
+      <rect x="70" y="150" width="200" height="60" rx="8"/>
+      <rect x="70" y="230" width="200" height="60" rx="8"/>
+    </g>
+    <g class="lbl" text-anchor="middle">
+      <text x="170" y="108">Ollama</text>
+      <text x="170" y="188">vLLM</text>
+      <text x="170" y="268">llama.cpp</text>
+    </g>
+    <g filter="url(#rough)" fill="none" stroke="#757575" stroke-width="2" stroke-linecap="round">
+      <path d="M275,100 L470,175" marker-end="url(#ahg)"/>
+      <path d="M275,180 L470,180" marker-end="url(#ahg)"/>
+      <path d="M275,260 L470,185" marker-end="url(#ahg)"/>
+    </g>
+
+    <!-- the socket -->
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="3">
+      <rect x="480" y="120" width="180" height="130" rx="14"/>
+      <circle cx="540" cy="165" r="10"/>
+      <circle cx="600" cy="165" r="10"/>
+      <line x1="570" y1="195" x2="570" y2="225"/>
+    </g>
+    <text x="570" y="105" text-anchor="middle" class="lbl-g">/v1 (OpenAI API)</text>
+
+    <!-- app plug -->
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.4" stroke-linecap="round">
+      <path d="M665,185 L780,185" marker-end="url(#ah)"/>
+      <rect x="800" y="140" width="230" height="90" rx="12"/>
+    </g>
+    <text x="915" y="180" text-anchor="middle" class="lbl-b">Your app / agent</text>
+    <text x="915" y="210" text-anchor="middle" class="lbl-g">code never changes</text>
+  </svg>
+  <p class="takeaway">Every serving lab ships behind the same endpoint — so application and agent code stay untouched when the backend swaps.</p>
+  <div class="pageno">09</div>
+</section>
+
+<!-- ============ SLIDE 10 — 16 GB BUDGET ============ -->
+<section>
+  <h2 class="t">It all runs on a 16 GB laptop</h2>
+  <p class="s">A non-negotiable design rule — engineered lean on purpose, not by luck.</p>
+  <svg viewBox="0 0 1100 380" role="img" aria-label="A memory budget bar showing labs peak at four to six gigabytes, with the tactics that keep it small">
+    <!-- budget bar -->
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.6">
+      <rect x="80" y="60" width="940" height="70" rx="10"/>
+      <line x1="80" y1="60" x2="410" y2="130"/>
+    </g>
+    <rect x="82" y="62" width="326" height="66" fill="#f5f5f5"/>
+    <text x="245" y="103" text-anchor="middle" class="lbl-b">≈ 4–6 GB peak</text>
+    <text x="715" y="103" text-anchor="middle" class="lbl-g">headroom on a 16 GB machine</text>
+
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.2">
+      <rect x="80"  y="180" width="290" height="150" rx="10"/>
+      <rect x="405" y="180" width="290" height="150" rx="10"/>
+      <rect x="730" y="180" width="290" height="150" rx="10"/>
+    </g>
+    <g class="lbl-sm" text-anchor="middle">
+      <text x="225" y="215" class="lbl">Small models</text>
+      <text x="225" y="250">1B–4B, Q4 quantized</text>
+      <text x="225" y="280">discussed big,</text>
+      <text x="225" y="305">required small</text>
+
+      <text x="550" y="215" class="lbl">One shared endpoint</text>
+      <text x="550" y="250">every component +</text>
+      <text x="550" y="280">every crew agent</text>
+      <text x="550" y="305">hits the same server</text>
+
+      <text x="875" y="215" class="lbl">Build up, tear down</text>
+      <text x="875" y="250">compose mem/cpu caps;</text>
+      <text x="875" y="280">stop services a step</text>
+      <text x="875" y="305">no longer needs</text>
+    </g>
+  </svg>
+  <p class="takeaway">Target per lab: ≈ 4–6 GB RAM and 2–3 containers. Heavy GPU work stays opt-in with CPU / cloud fallbacks.</p>
+  <div class="pageno">10</div>
+</section>
+
+<!-- ============ SLIDE 11 — TOOL MAP ============ -->
+<section>
+  <h2 class="t">The open-source tool map — one tool per job</h2>
+  <p class="s">A tidy stack: for each job, the tool we actually use in the labs.</p>
+  <svg viewBox="0 0 1100 400" role="img" aria-label="A table mapping each job to its open-source tool">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.2">
+      <rect x="60"  y="50" width="480" height="320" rx="10"/>
+      <rect x="560" y="50" width="480" height="320" rx="10"/>
+    </g>
+    <g class="lbl" text-anchor="start">
+      <text x="85" y="95"  class="lbl-g" style="font-size:17px">CONTAINER RUNTIME</text>
+      <text x="85" y="122">OrbStack · Colima · Rancher · Podman</text>
+      <text x="85" y="165" class="lbl-g" style="font-size:17px">SERVING</text>
+      <text x="85" y="192">Ollama (dev) · vLLM (CPU + GPU)</text>
+      <text x="85" y="235" class="lbl-g" style="font-size:17px">PACKAGING</text>
+      <text x="85" y="262">KitOps / ModelKit · ORAS</text>
+      <text x="85" y="305" class="lbl-g" style="font-size:17px">VECTOR STORE</text>
+      <text x="85" y="332">ChromaDB · Qdrant · pgvector</text>
+
+      <text x="585" y="95"  class="lbl-g" style="font-size:17px">MCP TOOLS</text>
+      <text x="585" y="122">ToolHive — MCP servers as containers</text>
+      <text x="585" y="165" class="lbl-g" style="font-size:17px">AGENTS</text>
+      <text x="585" y="192">AGENTS.md / SOUL.md + Skills + MCP</text>
+      <text x="585" y="235" class="lbl-g" style="font-size:17px">ORCHESTRATION</text>
+      <text x="585" y="262">CrewAI · LangGraph (when needed)</text>
+      <text x="585" y="305" class="lbl-g" style="font-size:17px">SUPPLY CHAIN</text>
+      <text x="585" y="332">Trivy · Syft · Grype · Cosign</text>
+    </g>
+    <g filter="url(#rough)" fill="none" stroke="#757575" stroke-width="1.6">
+      <line x1="80" y1="140" x2="520" y2="140"/>
+      <line x1="80" y1="210" x2="520" y2="210"/>
+      <line x1="80" y1="280" x2="520" y2="280"/>
+      <line x1="580" y1="140" x2="1020" y2="140"/>
+      <line x1="580" y1="210" x2="1020" y2="210"/>
+      <line x1="580" y1="280" x2="1020" y2="280"/>
+    </g>
+  </svg>
+  <p class="takeaway">Open standards throughout — swap any tool for its peer and the pattern still holds.</p>
+  <div class="pageno">11</div>
+</section>
+
+<!-- ============ SLIDE 12 — WRITE THE STACK ============ -->
+<section>
+  <h2 class="t">Write the stack — don't paste it</h2>
+  <p class="s">One growing <code>compose.yaml</code>, hand-authored service by service across the modules.</p>
+  <svg viewBox="0 0 1100 400" role="img" aria-label="A compose file growing as each module adds one service block">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.6">
+      <rect x="360" y="40" width="380" height="330" rx="12"/>
+    </g>
+    <text x="550" y="72" text-anchor="middle" class="lbl-g">compose.yaml</text>
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2">
+      <rect x="390" y="90"  width="320" height="42" rx="6"/>
+      <rect x="390" y="140" width="320" height="42" rx="6"/>
+      <rect x="390" y="190" width="320" height="42" rx="6"/>
+      <rect x="390" y="240" width="320" height="42" rx="6"/>
+      <rect x="390" y="290" width="320" height="42" rx="6"/>
+    </g>
+    <g class="lbl-sm" text-anchor="start">
+      <text x="405" y="117">model  (M2)</text>
+      <text x="405" y="167">vector DB  (M5)</text>
+      <text x="405" y="217">embeddings + app  (M5)</text>
+      <text x="405" y="267">MCP gateway  (M6)</text>
+      <text x="405" y="317">agents / crew  (M7)</text>
+    </g>
+    <g filter="url(#rough)" fill="none" stroke="#757575" stroke-width="2" stroke-linecap="round">
+      <path d="M300,111 L385,111" marker-end="url(#ahg)"/>
+      <path d="M300,161 L385,161" marker-end="url(#ahg)"/>
+      <path d="M300,211 L385,211" marker-end="url(#ahg)"/>
+      <path d="M300,261 L385,261" marker-end="url(#ahg)"/>
+      <path d="M300,311 L385,311" marker-end="url(#ahg)"/>
+    </g>
+    <text x="150" y="216" text-anchor="middle" class="lbl-g">one block</text>
+    <text x="150" y="246" text-anchor="middle" class="lbl-g">per module</text>
+  </svg>
+  <p class="takeaway">By the end, one file tells the whole story — and you understand every line because you wrote it.</p>
+  <div class="pageno">12</div>
+</section>
+
+<!-- ============ SLIDE 13 — PROGRAM AT A GLANCE ============ -->
+<section>
+  <h2 class="t">Program at a glance</h2>
+  <p class="s">Two days, two halves — serve &amp; package, then reason &amp; ship.</p>
+  <svg viewBox="0 0 1100 360" role="img" aria-label="Day 1 covers modules 1 to 4, Day 2 covers modules 5 to 8 plus the capstone">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.8">
+      <rect x="60" y="60" width="470" height="240" rx="14"/>
+      <rect x="570" y="60" width="470" height="240" rx="14"/>
+    </g>
+    <text x="295" y="105" text-anchor="middle" class="lbl-b">DAY 1</text>
+    <text x="295" y="145" text-anchor="middle" class="lbl">Serve &amp; Package the Model</text>
+    <text x="295" y="205" text-anchor="middle" class="lbl-g">M1 · M2 · M3 · M4</text>
+    <text x="295" y="250" text-anchor="middle" class="lbl-g">steps 0 → 3</text>
+
+    <text x="805" y="105" text-anchor="middle" class="lbl-b">DAY 2</text>
+    <text x="805" y="145" text-anchor="middle" class="lbl">RAG → Agentic → Multi-Agent → Ship</text>
+    <text x="805" y="205" text-anchor="middle" class="lbl-g">M5 · M6 · M7 · M8 + Capstone</text>
+    <text x="805" y="250" text-anchor="middle" class="lbl-g">steps 4 → 8</text>
+  </svg>
+  <p class="takeaway">Optional M3B (LoRA/QLoRA) can extend the program toward 2.5 days for customization-focused cohorts.</p>
+  <div class="pageno">13</div>
+</section>
+
+<!-- ============ SLIDE 14 — PREREQUISITES ============ -->
+<section>
+  <h2 class="t">What to bring</h2>
+  <p class="s">All free and open source — a laptop and a bit of container fluency.</p>
+  <svg viewBox="0 0 1100 380" role="img" aria-label="Prerequisites split into knowledge you need and system you need">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="2.6">
+      <rect x="60" y="50" width="480" height="300" rx="12"/>
+      <rect x="560" y="50" width="480" height="300" rx="12"/>
+    </g>
+    <text x="300" y="90" text-anchor="middle" class="lbl-b">Knowledge</text>
+    <g class="lbl-sm" text-anchor="start">
+      <text x="90" y="140">Container basics: build, run, volumes, networks</text>
+      <text x="90" y="180">The Compose file format</text>
+      <text x="90" y="220">Git &amp; GitHub; basic CI/CD ideas</text>
+      <text x="90" y="260">Command-line fluency (macOS or Windows)</text>
+      <text x="90" y="300">Basic Python helps — no ML background needed</text>
+    </g>
+    <text x="800" y="90" text-anchor="middle" class="lbl-b">System</text>
+    <g class="lbl-sm" text-anchor="start">
+      <text x="590" y="140">A runtime: OrbStack / Colima / Rancher / Podman</text>
+      <text x="590" y="180">Apple Silicon or Windows 11 + WSL2</text>
+      <text x="590" y="220">Ollama installed natively</text>
+      <text x="590" y="260">16 GB RAM, 4 cores, 30 GB free disk</text>
+      <text x="590" y="300">VS Code + GitHub + a registry account</text>
+    </g>
+  </svg>
+  <p class="takeaway">Windows + NVIDIA unlocks the full local vLLM-GPU lab; without it, the CPU track covers the learning.</p>
+  <div class="pageno">14</div>
+</section>
+
+<!-- ============ SLIDE 15 — CLOSING ============ -->
+<section>
+  <p class="kicker">LET'S BUILD</p>
+  <h2 class="t" style="font-size:2.4em">Build it once. Run it anywhere.</h2>
+  <svg viewBox="0 0 1100 320" role="img" aria-label="A container carrying AI rolling forward toward a shipped platform">
+    <g filter="url(#rough)" fill="none" stroke="#1e1e1e" stroke-width="3" stroke-linecap="round">
+      <rect x="360" y="90" width="300" height="140" rx="10"/>
+      <line x1="420" y1="100" x2="420" y2="220"/>
+      <line x1="480" y1="100" x2="480" y2="220"/>
+      <line x1="540" y1="100" x2="540" y2="220"/>
+      <line x1="600" y1="100" x2="600" y2="220"/>
+      <circle cx="420" cy="255" r="18"/>
+      <circle cx="600" cy="255" r="18"/>
+      <path d="M690,160 L860,160" marker-end="url(#ah)"/>
+      <rect x="875" y="120" width="170" height="80" rx="10"/>
+    </g>
+    <text x="510" y="70" text-anchor="middle" class="lbl-g">Colima · Rancher · OrbStack · Podman</text>
+    <text x="510" y="175" text-anchor="middle" class="lbl-b">AI</text>
+    <text x="960" y="167" text-anchor="middle" class="lbl">Shipped</text>
+  </svg>
+  <p class="s" style="font-size:1.15em">Container-native, not Docker-native — the open standard is the through-line.</p>
+  <p class="credit">Start with <b>Setup → Prerequisites</b>, then Module 1. &nbsp;·&nbsp; Gourav Shah · School of DevOps &amp; AI</p>
+  <div class="pageno">15</div>
+</section>
+
+</div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/reveal.min.js"></script>
+<script>
+  Reveal.initialize({
+    width: 1280,
+    height: 720,
+    margin: 0.04,
+    minScale: 0.2,
+    maxScale: 2.0,
+    hash: true,
+    center: false,
+    slideNumber: false,
+    transition: 'slide',
+    controlsTutorial: true
+  });
+</script>
+<script>
+  // Autofit: if a slide's content overflows (long titles/takeaways wrapping to
+  // two lines), shrink its diagram until everything fits. Measures the real
+  // rendered heights, so it holds across browsers, fonts, and zoom levels.
+  (function(){
+    function fit(sec){
+      if(!sec) return;
+      var svg = sec.querySelector('svg');
+      if(!svg) return;
+      var mh = 58;
+      svg.style.maxHeight = mh + '%';
+      var guard = 0;
+      while (sec.scrollHeight > sec.clientHeight + 2 && mh > 18 && guard++ < 20){
+        mh -= 3;
+        svg.style.maxHeight = mh + '%';
+      }
+    }
+    Reveal.on('ready', function(e){ fit(e.currentSlide); });
+    Reveal.on('slidechanged', function(e){ fit(e.currentSlide); });
+    window.addEventListener('resize', function(){ fit(Reveal.getCurrentSlide()); });
+  })();
+</script>
+</body>
+</html>
