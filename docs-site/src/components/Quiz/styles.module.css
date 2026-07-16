@@ -1,0 +1,17 @@
+.quiz { border: 1px solid var(--ifm-color-emphasis-300); border-radius: 8px; padding: 1rem 1.25rem; margin: 1rem 0; }
+.question { margin-bottom: 1.25rem; }
+.prompt { font-weight: 600; margin-bottom: .25rem; }
+.hint { font-size: .85rem; color: var(--ifm-color-emphasis-600); margin: 0 0 .5rem; }
+.options { list-style: none; padding: 0; margin: 0; }
+.option { display: block; width: 100%; text-align: left; padding: .5rem .75rem; margin: .3rem 0; border: 1px solid var(--ifm-color-emphasis-300); border-radius: 6px; background: var(--ifm-background-surface-color); cursor: pointer; }
+.option:hover:not(:disabled) { border-color: var(--ifm-color-primary); }
+.marker { margin-right: .5rem; }
+.chosen { border-color: var(--ifm-color-primary); }
+.correct { border-color: #2e8b57; background: rgba(46,139,87,.12); }
+.incorrect { border-color: #c0392b; background: rgba(192,57,43,.12); }
+.explanation { font-size: .85rem; color: var(--ifm-color-emphasis-700); margin: .25rem 0 .5rem 1.75rem; }
+.actions { display: flex; align-items: center; gap: .75rem; margin-top: .5rem; }
+.check, .resetBtn { padding: .4rem .9rem; border-radius: 6px; border: none; cursor: pointer; }
+.check { background: var(--ifm-color-primary); color: #fff; }
+.resetBtn { background: var(--ifm-color-emphasis-200); }
+.score { font-weight: 600; }
