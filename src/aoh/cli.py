@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
+import aoh.adapters
+from aoh.adapters.base import ADAPTERS, MaterializeRequest
 from aoh.adapters.hermes import (
     generate_hermes_adapter,
     install_hermes_agent,
@@ -24,6 +27,22 @@ def main(argv: list[str] | None = None) -> int:
     init_pack.add_argument("name")
     init_pack.add_argument("--output", type=Path, required=True)
     init_pack.add_argument("--description", required=True)
+
+    install = subcommands.add_parser(
+        "install", help="Install an AOH pack for a runtime (hermes, claude-code, codex)"
+    )
+    install.add_argument("pack", type=Path)
+    install.add_argument(
+        "--runtime",
+        required=True,
+        choices=["hermes", "claude-code", "codex"],
+        help="Target runtime",
+    )
+    install.add_argument("--output", type=Path, required=True, help="Output directory")
+    install.add_argument("--binding", type=Path, help="Optional binding file")
+    install.add_argument("--role", help="Role name")
+    install.add_argument("--profile", help="Profile name")
+    install.add_argument("--model", help="Model hint")
 
     hermes = subcommands.add_parser("adapt-hermes", help="Generate a Hermes-native view")
     hermes.add_argument("pack", type=Path)
@@ -74,6 +93,22 @@ def main(argv: list[str] | None = None) -> int:
             validate_pack(pack)
             print(f"valid AOH pack: {pack.name}")
             return 0
+        if args.command == "install":
+            validate_pack(pack)
+            binding = load_binding(args.binding) if args.binding else None
+            req = MaterializeRequest(
+                pack=pack,
+                output_dir=args.output,
+                role_name=args.role,
+                binding=binding,
+                profile=args.profile,
+                model_hint=args.model,
+            )
+            result = ADAPTERS[args.runtime].materialize(req)
+            for diagnostic in result.diagnostics:
+                print(f"warning: {diagnostic}", file=sys.stderr)
+            print(f"installed {args.runtime} workspace in {result.output_dir}")
+            return 0
         if args.command == "adapt-hermes":
             validate_pack(pack)
             result = generate_hermes_adapter(pack, args.output)
@@ -99,6 +134,7 @@ def main(argv: list[str] | None = None) -> int:
                 binding=binding,
             )
             print(f"installed Hermes agent profile in {result.output_dir}")
+            print("hint: prefer 'aoh install --runtime hermes'", file=sys.stderr)
             return 0
         if args.command == "install-hermes-team":
             validate_pack(pack)
