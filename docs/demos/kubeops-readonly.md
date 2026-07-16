@@ -27,8 +27,10 @@ block), launch.sh (exports scoped KUBECONFIG), provision.sh.
 ```
 
 Creates ServiceAccount `aoh-kubeops-sresquad`, ClusterRole `aoh-readonly`
-(get/list/watch on everything), binds them, writes a scoped `kubeconfig` next to the
-script. AOH never touches the cluster itself.
+(get/list/watch on a fixed resource allowlist — nodes, pods, pods/log, events,
+endpoints, services, PVCs/PVs, namespaces, deployments/replicasets/daemonsets/
+statefulsets, jobs/cronjobs, metrics — Secrets excluded), binds them, writes a scoped
+`kubeconfig` next to the script. AOH never touches the cluster itself.
 
 ## 3. Prove the guardrail (no agent involved)
 
@@ -37,7 +39,12 @@ KC=~/.hermes/profiles/kubeops-sresquad/kubeconfig
 kubectl --kubeconfig "$KC" get pods -A          # works
 kubectl --kubeconfig "$KC" delete pod -n kube-system --all   # Forbidden
 kubectl --kubeconfig "$KC" auth can-i delete pods            # no
+kubectl --kubeconfig "$KC" auth can-i get secrets             # no
 ```
+
+Live-verified 2026-07-16 against `kind-sresquad-demo`: `auth can-i get secrets` → `no`.
+Full matrix + real command output in
+`docs/demos/adapter-validation-2026-07-16.md`.
 
 ## 4. Run the agent
 
@@ -59,8 +66,10 @@ to report the denial as the guardrail working.
 - Verified: Hermes's own command guardrails have no kubectl awareness (hardcoded
   pattern list, no subcommand allow/deny) — `kubectl delete` would run unprompted.
   The cluster must be the wall, so it is.
-- Read-only is not read-nothing: get/list/watch on `*` includes every Secret in the
-  cluster. Fine for a local kind demo; production bindings should tighten the
-  ClusterRole (e.g. aggregated `view` + explicit nodes, excluding `secrets`).
+- Read-only is not read-everything: the generated ClusterRole is a fixed resource
+  allowlist (get/list/watch on nodes, pods, pods/log, events, endpoints, services,
+  PVCs/PVs, namespaces, workload controllers, jobs/cronjobs, metrics), not a wildcard
+  — Secrets are excluded by design, shared across all three adapters
+  (`src/aoh/adapters/_k8s.py`). Live-verified: `auth can-i get secrets` → `no`.
 - The minted token expires after 720h (30 days). Re-run provision.sh to refresh —
   it is idempotent.
