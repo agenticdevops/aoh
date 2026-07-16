@@ -143,9 +143,9 @@ to its runtime's convention:
 | Runtime | Surface | Command |
 |---|---|---|
 | Hermes | `commands/ops-<skill>.md` | `ops-<skill>` |
-| Claude Code | `commands/ops/<skill>.md` (subdir → namespace) | `/ops:<skill>` |
-| Codex | `prompts/ops-<skill>.md` | `/ops-<skill>` |
-| OpenCode | `command/ops-<skill>.md` | `/ops-<skill>` |
+| Claude Code (planned) | `commands/ops/<skill>.md` (subdir → namespace) | `/ops:<skill>` |
+| Codex (planned) | `prompts/ops-<skill>.md` | `/ops-<skill>` |
+| OpenCode (planned) | `command/ops-<skill>.md` | `/ops-<skill>` |
 
 The prefix lives in the spec; separator mapping lives in each adapter. See
 [Runtime Adapters](./adapters) for what the Hermes adapter actually generates today.

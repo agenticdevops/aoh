@@ -4,7 +4,7 @@ title: Artifact Kinds
 
 # Artifact Kinds
 
-Eight kinds make up an AOH pack (plus `Binding`, which lives outside packs). Fields
+Seven kinds make up an AOH pack, plus `Binding` (which lives outside packs) — eight in all. Fields
 below are taken from the loader dataclasses in
 [`src/aoh/pack.py`](https://github.com/agenticdevops/aoh/blob/main/src/aoh/pack.py)
 and cross-checked against [`docs/spec.md`](https://github.com/agenticdevops/aoh/blob/main/docs/spec.md).
