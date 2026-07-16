@@ -29,6 +29,7 @@ from shutil import copytree
 from aoh.adapters._k8s import (
     KUBECTL_MUTATION_COMMANDS,
     KUBECTL_READ_COMMANDS,
+    render_overlay_prepare_script,
     render_provision_script,
     validate_binding_fields,
 )
@@ -39,6 +40,11 @@ __all__ = ["ClaudeCodeAdapter"]
 
 
 _HELM_MUTATION_COMMANDS = ("install", "upgrade", "uninstall", "rollback")
+
+_INHERIT_DIAGNOSTIC = (
+    "access=inherit: no RBAC boundary — agent acts with the user's "
+    "credentials, context-pinned only"
+)
 
 
 def _kubectl_guard_script() -> str:
@@ -309,8 +315,12 @@ block "unrecognized command shape; failing closed"
 '''
 
 
-def _render_settings_json(*, workspace: Path) -> dict:
-    kubeconfig_path = str((workspace / "kubeconfig").resolve())
+def _render_settings_json(*, workspace: Path, inherit: bool = False) -> dict:
+    if inherit:
+        overlay_path = str((workspace / "kubeconfig-overlay").resolve())
+        kubeconfig_env = f"{overlay_path}:${{KUBECONFIG:-$HOME/.kube/config}}"
+    else:
+        kubeconfig_env = str((workspace / "kubeconfig").resolve())
     hook_path = str((workspace / ".claude" / "hooks" / "kubectl-guard.sh").resolve())
 
     deny = [f"Bash(kubectl {verb}:*)" for verb in KUBECTL_MUTATION_COMMANDS]
@@ -320,7 +330,7 @@ def _render_settings_json(*, workspace: Path) -> dict:
     allow.append("Bash(./.claude/skills/*)")
 
     return {
-        "env": {"KUBECONFIG": kubeconfig_path},
+        "env": {"KUBECONFIG": kubeconfig_env},
         "permissions": {
             "deny": deny,
             "allow": allow,
@@ -389,6 +399,16 @@ def _render_claude_md(pack: Pack, *, role: Role | None, binding: Binding | None)
             f"- Default namespace: {namespace} (you may inspect other namespaces)\n"
             f"- Access mode: {binding.access}\n"
         )
+        if binding.access == "inherit":
+            binding_block += (
+                "\n**access=inherit**: you are acting with YOUR credentials — the "
+                "user's own kubeconfig identity, not a scoped ServiceAccount. The "
+                "kubeconfig overlay only pins you to this context and namespace; it "
+                "grants no new permissions and removes none. There is NO hard "
+                "enforcement boundary in this mode — whatever the user's identity "
+                "can do, this session can do. Treat every mutating command with the "
+                "same caution you would if the user typed it themselves.\n"
+            )
 
     walls = (
         "\n## Read-only enforcement — read this before using kubectl/helm\n\n"
@@ -429,10 +449,15 @@ def _render_claude_md(pack: Pack, *, role: Role | None, binding: Binding | None)
     )
 
 
-def _render_launch_script(*, with_kubeconfig: bool) -> str:
-    kubeconfig_line = (
-        'export KUBECONFIG="${DIR}/kubeconfig"\n' if with_kubeconfig else ""
-    )
+def _render_launch_script(*, with_kubeconfig: bool, inherit: bool = False) -> str:
+    if not with_kubeconfig:
+        kubeconfig_line = ""
+    elif inherit:
+        kubeconfig_line = (
+            'export KUBECONFIG="${DIR}/kubeconfig-overlay:${KUBECONFIG:-$HOME/.kube/config}"\n'
+        )
+    else:
+        kubeconfig_line = 'export KUBECONFIG="${DIR}/kubeconfig"\n'
     return (
         "#!/usr/bin/env bash\n"
         "set -euo pipefail\n"
@@ -465,10 +490,6 @@ class ClaudeCodeAdapter:
             if not binding.target.get("kubeContext"):
                 raise PackError(
                     f"Binding `{binding.name}` target.kubeContext is required for kubernetes targets"
-                )
-            if binding.access == "inherit":
-                raise PackError(
-                    "access=inherit not yet supported by claude-code adapter"
                 )
             validate_binding_fields(binding)
             role_name = binding.role
@@ -511,9 +532,15 @@ class ClaudeCodeAdapter:
         )
         generated.append(hook_file)
 
+        inherit = binding is not None and binding.access == "inherit"
+
         settings_file = claude_dir / "settings.json"
         settings_file.write_text(
-            json.dumps(_render_settings_json(workspace=workspace), indent=2, sort_keys=True)
+            json.dumps(
+                _render_settings_json(workspace=workspace, inherit=inherit),
+                indent=2,
+                sort_keys=True,
+            )
             + "\n",
             encoding="utf-8",
         )
@@ -527,18 +554,35 @@ class ClaudeCodeAdapter:
 
         launch_file = workspace / "launch.sh"
         launch_file.write_text(
-            _render_launch_script(with_kubeconfig=binding is not None), encoding="utf-8"
+            _render_launch_script(with_kubeconfig=binding is not None, inherit=inherit),
+            encoding="utf-8",
         )
         os.chmod(launch_file, 0o755)
         generated.append(launch_file)
 
-        if binding is not None:
-            provision_file = workspace / "provision.sh"
-            provision_file.write_text(render_provision_script(binding), encoding="utf-8")
-            os.chmod(provision_file, 0o755)
-            generated.append(provision_file)
+        diagnostics: list[str] = []
 
-        return AdapterResult(runtime="claude-code", output_dir=workspace, generated_files=generated)
+        if binding is not None:
+            if inherit:
+                overlay_file = workspace / "prepare-overlay.sh"
+                overlay_file.write_text(
+                    render_overlay_prepare_script(binding), encoding="utf-8"
+                )
+                os.chmod(overlay_file, 0o755)
+                generated.append(overlay_file)
+                diagnostics.append(_INHERIT_DIAGNOSTIC)
+            else:
+                provision_file = workspace / "provision.sh"
+                provision_file.write_text(render_provision_script(binding), encoding="utf-8")
+                os.chmod(provision_file, 0o755)
+                generated.append(provision_file)
+
+        return AdapterResult(
+            runtime="claude-code",
+            output_dir=workspace,
+            generated_files=generated,
+            diagnostics=diagnostics,
+        )
 
 
 ADAPTERS["claude-code"] = ClaudeCodeAdapter()

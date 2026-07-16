@@ -37,11 +37,23 @@ Kinds below.
   `spec.skill`. Evals gate cheap-model trust per skill.
 - `Binding`: site-specific association of a role with a target (e.g.
   `kubeContext` + default `namespace`). Lives outside packs, in a site repo.
-  Materialized by adapters at install time (`--binding`); for kubernetes targets the
-  Hermes adapter generates a provision script that creates a dedicated read-only RBAC
-  identity and scoped kubeconfig. AOH generates the script; the operator runs it.
-  The demo ClusterRole grants read on everything including Secrets — production
-  bindings should tighten it.
+  Materialized by adapters at install time (`--binding`); for kubernetes targets
+  every runtime adapter (Hermes, Claude Code, Codex) generates a script the operator
+  runs, chosen by `spec.access` (default `scoped`; loader rejects any other value):
+  - **`scoped`**: `provision.sh` creates a dedicated ServiceAccount bound to an
+    explicit get/list/watch RBAC allowlist (never a `*/*` wildcard; Secrets are
+    excluded), then writes a scoped `kubeconfig` (0600) next to the script. This is
+    a hard enforcement boundary — the cluster API server itself rejects mutations
+    from this identity.
+  - **`inherit`**: `prepare-overlay.sh` writes NO credentials at all. It resolves
+    the target context's cluster/user entry names from the operator's own merged
+    kubeconfig (via a redacted `kubectl config view`, never `--raw`), verifies the
+    result resolves via `kubectl config view --minify`, and self-checks its own
+    output for credential-shaped content before finishing. It writes a minimal
+    `kubeconfig-overlay` pinning `current-context` + namespace; the agent then runs
+    under the operator's OWN identity, merged in via
+    `KUBECONFIG=<overlay>:<original>`. There is NO hard enforcement boundary in this
+    mode — whatever the operator's credentials can do, the agent can do.
 
 ## Commands
 

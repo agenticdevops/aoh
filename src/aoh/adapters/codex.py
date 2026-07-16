@@ -41,6 +41,7 @@ from shutil import copytree
 from aoh.adapters._k8s import (
     KUBECTL_MUTATION_COMMANDS,
     KUBECTL_READ_COMMANDS,
+    render_overlay_prepare_script,
     render_provision_script,
     validate_binding_fields,
 )
@@ -59,6 +60,11 @@ _DIAGNOSTIC = (
     "are best-effort prefix matches with known bypass gaps (--context-first, "
     "absolute path, shell wrappers); network access enabled for kubectl; "
     "RBAC is the enforcement boundary."
+)
+
+_INHERIT_DIAGNOSTIC = (
+    "access=inherit: no RBAC boundary — agent acts with the user's "
+    "credentials, context-pinned only"
 )
 
 
@@ -97,12 +103,48 @@ def _rewrite_skill_frontmatter_name(skill_md: Path, *, wrapped_name: str) -> Non
     skill_md.write_text(f"---{new_frontmatter}---{body}", encoding="utf-8")
 
 
-def _render_agents_md(pack: Pack, *, role: Role | None, skills: list[str]) -> str:
+def _render_agents_md(
+    pack: Pack, *, role: Role | None, skills: list[str], binding: Binding | None = None
+) -> str:
     title = role.display_name if role else pack.name
     responsibilities = "\n".join(f"- {item}" for item in role.responsibilities) if role else ""
     purpose = role.purpose if role else pack.name
 
     invocations = "\n".join(f"- `$ops-{skill}`" for skill in skills)
+
+    if binding is not None and binding.access == "inherit":
+        contract = (
+            "## Access mode: inherit — no hard enforcement boundary\n\n"
+            "This binding uses `access: inherit`. You are acting with YOUR "
+            "CREDENTIALS — the user's own kubeconfig identity, context-pinned "
+            "to this cluster and namespace via a kubeconfig overlay. There is "
+            "NO scoped RBAC identity and NO hard enforcement boundary in this "
+            "mode: whatever the user's identity is permitted to do, this "
+            "session can do. The `.codex/rules/kubectl-readonly.rules` file "
+            "below is still a best-effort convenience guardrail, but with no "
+            "RBAC backing it, treat every mutating command with the same "
+            "caution you would if the user typed it themselves.\n\n"
+            "This workspace also ships `.codex/rules/kubectl-readonly.rules`, "
+            "a best-effort execpolicy guardrail that flags kubectl/helm "
+            "mutation verbs. The rules match on a literal command prefix and "
+            "are known to miss `--context`-first invocations, absolute "
+            "binary paths, and shell-wrapped (`sh -c`) commands.\n"
+        )
+    else:
+        contract = (
+            "## Read-only contract\n\n"
+            "You operate under a scoped, read-only Kubernetes identity. Prefer "
+            "read-only inspection; report denials as the system working as "
+            "intended, not as errors to work around.\n\n"
+            "This workspace also ships `.codex/rules/kubectl-readonly.rules`, "
+            "a best-effort execpolicy guardrail that flags kubectl/helm "
+            "mutation verbs. Be honest about what this is: cluster RBAC is the "
+            "enforcement boundary; the rules file is best-effort. The rules "
+            "match on a literal command prefix and are known to miss "
+            "`--context`-first invocations, absolute binary paths, and "
+            "shell-wrapped (`sh -c`) commands — RBAC is what actually stops a "
+            "mutation from succeeding.\n"
+        )
 
     return (
         f"# AOH Codex workspace: {title}\n\n"
@@ -115,18 +157,7 @@ def _render_agents_md(pack: Pack, *, role: Role | None, skills: list[str]) -> st
         + (f"## Responsibilities\n\n{responsibilities}\n\n" if responsibilities else "")
         + "## Skills\n\n"
         f"{invocations}\n\n"
-        "## Read-only contract\n\n"
-        "You operate under a scoped, read-only Kubernetes identity. Prefer "
-        "read-only inspection; report denials as the system working as "
-        "intended, not as errors to work around.\n\n"
-        "This workspace also ships `.codex/rules/kubectl-readonly.rules`, "
-        "a best-effort execpolicy guardrail that flags kubectl/helm "
-        "mutation verbs. Be honest about what this is: cluster RBAC is the "
-        "enforcement boundary; the rules file is best-effort. The rules "
-        "match on a literal command prefix and are known to miss "
-        "`--context`-first invocations, absolute binary paths, and "
-        "shell-wrapped (`sh -c`) commands — RBAC is what actually stops a "
-        "mutation from succeeding.\n"
+        f"{contract}"
     )
 
 
@@ -177,10 +208,15 @@ def _render_rules_file() -> str:
     return "\n".join(lines) + "\n"
 
 
-def _render_launch_script(*, with_kubeconfig: bool) -> str:
-    kubeconfig_line = (
-        'export KUBECONFIG="${DIR}/kubeconfig"\n' if with_kubeconfig else ""
-    )
+def _render_launch_script(*, with_kubeconfig: bool, inherit: bool = False) -> str:
+    if not with_kubeconfig:
+        kubeconfig_line = ""
+    elif inherit:
+        kubeconfig_line = (
+            'export KUBECONFIG="${DIR}/kubeconfig-overlay:${KUBECONFIG:-$HOME/.kube/config}"\n'
+        )
+    else:
+        kubeconfig_line = 'export KUBECONFIG="${DIR}/kubeconfig"\n'
     return (
         "#!/usr/bin/env bash\n"
         "set -euo pipefail\n"
@@ -214,8 +250,6 @@ class CodexAdapter:
                 raise PackError(
                     f"Binding `{binding.name}` target.kubeContext is required for kubernetes targets"
                 )
-            if binding.access == "inherit":
-                raise PackError("access=inherit not yet supported by codex adapter")
             validate_binding_fields(binding)
             role_name = binding.role
 
@@ -242,9 +276,12 @@ class CodexAdapter:
             _rewrite_skill_frontmatter_name(skill_md, wrapped_name=wrapped_name)
             generated.append(skill_md)
 
+        inherit = binding is not None and binding.access == "inherit"
+
         agents_md_file = workspace / "AGENTS.md"
         agents_md_file.write_text(
-            _render_agents_md(pack, role=role, skills=selected_skills), encoding="utf-8"
+            _render_agents_md(pack, role=role, skills=selected_skills, binding=binding),
+            encoding="utf-8",
         )
         generated.append(agents_md_file)
 
@@ -259,22 +296,34 @@ class CodexAdapter:
 
         launch_file = workspace / "launch.sh"
         launch_file.write_text(
-            _render_launch_script(with_kubeconfig=binding is not None), encoding="utf-8"
+            _render_launch_script(with_kubeconfig=binding is not None, inherit=inherit),
+            encoding="utf-8",
         )
         os.chmod(launch_file, 0o755)
         generated.append(launch_file)
 
+        diagnostics = [_DIAGNOSTIC]
+
         if binding is not None:
-            provision_file = workspace / "provision.sh"
-            provision_file.write_text(render_provision_script(binding), encoding="utf-8")
-            os.chmod(provision_file, 0o755)
-            generated.append(provision_file)
+            if inherit:
+                overlay_file = workspace / "prepare-overlay.sh"
+                overlay_file.write_text(
+                    render_overlay_prepare_script(binding), encoding="utf-8"
+                )
+                os.chmod(overlay_file, 0o755)
+                generated.append(overlay_file)
+                diagnostics.append(_INHERIT_DIAGNOSTIC)
+            else:
+                provision_file = workspace / "provision.sh"
+                provision_file.write_text(render_provision_script(binding), encoding="utf-8")
+                os.chmod(provision_file, 0o755)
+                generated.append(provision_file)
 
         return AdapterResult(
             runtime="codex",
             output_dir=workspace,
             generated_files=generated,
-            diagnostics=[_DIAGNOSTIC],
+            diagnostics=diagnostics,
         )
 
 

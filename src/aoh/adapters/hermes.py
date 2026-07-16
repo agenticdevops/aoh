@@ -5,12 +5,21 @@ import os
 from pathlib import Path
 from shutil import copytree
 
-from aoh.adapters._k8s import render_provision_script, validate_binding_fields
+from aoh.adapters._k8s import (
+    render_overlay_prepare_script,
+    render_provision_script,
+    validate_binding_fields,
+)
 from aoh.adapters.base import ADAPTERS, AdapterResult, MaterializeRequest
 from aoh.pack import Binding, Pack, PackError, Role, load_role, load_team
 
 # Re-exported for backward compatibility — AdapterResult now lives in base.py.
 __all__ = ["AdapterResult", "HermesAdapter", "install_hermes_agent"]
+
+_INHERIT_DIAGNOSTIC = (
+    "access=inherit: no RBAC boundary — agent acts with the user's "
+    "credentials, context-pinned only"
+)
 
 
 def generate_hermes_adapter(pack: Pack, output_dir: Path | str) -> AdapterResult:
@@ -167,11 +176,14 @@ def install_hermes_agent(
         + "\n",
         encoding="utf-8",
     )
+    inherit = binding is not None and binding.access == "inherit"
+
     launch_file.write_text(
         _render_launch_script(
             profile_name=profile_name,
             skills=selected_skills,
             with_kubeconfig=binding is not None,
+            inherit=inherit,
         ),
         encoding="utf-8",
     )
@@ -185,13 +197,27 @@ def install_hermes_agent(
         *skill_result.generated_files,
     ]
 
-    if binding is not None:
-        provision_file = profile_dir / "provision.sh"
-        provision_file.write_text(render_provision_script(binding), encoding="utf-8")
-        os.chmod(provision_file, 0o755)
-        generated.append(provision_file)
+    diagnostics: list[str] = []
 
-    return AdapterResult(runtime="hermes", output_dir=profile_dir, generated_files=generated)
+    if binding is not None:
+        if inherit:
+            overlay_file = profile_dir / "prepare-overlay.sh"
+            overlay_file.write_text(render_overlay_prepare_script(binding), encoding="utf-8")
+            os.chmod(overlay_file, 0o755)
+            generated.append(overlay_file)
+            diagnostics.append(_INHERIT_DIAGNOSTIC)
+        else:
+            provision_file = profile_dir / "provision.sh"
+            provision_file.write_text(render_provision_script(binding), encoding="utf-8")
+            os.chmod(provision_file, 0o755)
+            generated.append(provision_file)
+
+    return AdapterResult(
+        runtime="hermes",
+        output_dir=profile_dir,
+        generated_files=generated,
+        diagnostics=diagnostics,
+    )
 
 
 def install_hermes_team(
@@ -307,14 +333,29 @@ def _render_agent_soul(
     binding_block = ""
     if binding is not None:
         namespace = binding.target.get("namespace", "default")
-        binding_block = (
-            "\n## Binding\n\n"
-            f"- Bound cluster (kube context): {binding.target.get('kubeContext')}\n"
-            f"- Default namespace: {namespace} (you may inspect other namespaces)\n"
-            "- Access: read-only (get/list/watch) enforced by cluster RBAC. Mutation "
-            "attempts will be denied by the API server — report denials as the "
-            "guardrail working, not as errors to work around.\n"
-        )
+        if binding.access == "inherit":
+            binding_block = (
+                "\n## Binding\n\n"
+                f"- Bound cluster (kube context): {binding.target.get('kubeContext')}\n"
+                f"- Default namespace: {namespace} (you may inspect other namespaces)\n"
+                f"- Access mode: {binding.access}\n\n"
+                "**access=inherit**: you are acting with YOUR credentials — the "
+                "user's own kubeconfig identity, not a scoped ServiceAccount. The "
+                "kubeconfig overlay only pins you to this context and namespace; "
+                "it grants no new permissions and removes none. There is NO hard "
+                "enforcement boundary in this mode — whatever the user's identity "
+                "can do, this session can do. Treat every mutating command with "
+                "the same caution you would if the user typed it themselves.\n"
+            )
+        else:
+            binding_block = (
+                "\n## Binding\n\n"
+                f"- Bound cluster (kube context): {binding.target.get('kubeContext')}\n"
+                f"- Default namespace: {namespace} (you may inspect other namespaces)\n"
+                "- Access: read-only (get/list/watch) enforced by cluster RBAC. Mutation "
+                "attempts will be denied by the API server — report denials as the "
+                "guardrail working, not as errors to work around.\n"
+            )
 
     if role:
         title = role.display_name
@@ -356,14 +397,24 @@ def _render_agent_soul(
 
 
 def _render_launch_script(
-    *, profile_name: str, skills: list[str], with_kubeconfig: bool = False
+    *,
+    profile_name: str,
+    skills: list[str],
+    with_kubeconfig: bool = False,
+    inherit: bool = False,
 ) -> str:
     skill_args = ",".join(skills)
-    kubeconfig_line = (
-        'export KUBECONFIG="$(cd "$(dirname "$0")" && pwd)/kubeconfig"\n'
-        if with_kubeconfig
-        else ""
-    )
+    if not with_kubeconfig:
+        kubeconfig_line = ""
+    elif inherit:
+        kubeconfig_line = (
+            'export KUBECONFIG="$(cd "$(dirname "$0")" && pwd)/kubeconfig-overlay'
+            ':${KUBECONFIG:-$HOME/.kube/config}"\n'
+        )
+    else:
+        kubeconfig_line = (
+            'export KUBECONFIG="$(cd "$(dirname "$0")" && pwd)/kubeconfig"\n'
+        )
     return (
         "#!/usr/bin/env bash\n"
         "set -euo pipefail\n"

@@ -123,13 +123,15 @@ def test_materialize_creates_expected_workspace_file_set(tmp_path: Path) -> None
         assert (workspace / ".claude" / "commands" / "ops" / f"{skill}.md").exists()
 
 
-def test_materialize_inherit_access_raises_not_yet_supported(tmp_path: Path) -> None:
-    try:
-        materialize(tmp_path, access="inherit")
-    except PackError as exc:
-        assert "access=inherit not yet supported by claude-code adapter" in str(exc)
-    else:
-        raise AssertionError("inherit access should raise PackError in claude-code adapter")
+def test_materialize_inherit_access_produces_overlay_workspace(tmp_path: Path) -> None:
+    # access=inherit is supported (Task 5): prepare-overlay.sh instead of
+    # provision.sh. Full coverage lives in tests/test_inherit_mode.py; this
+    # regression guard just confirms materialize() no longer raises here.
+    result = materialize(tmp_path, access="inherit")
+    workspace = tmp_path / "workspace"
+    assert (workspace / "prepare-overlay.sh").exists()
+    assert not (workspace / "provision.sh").exists()
+    assert result.runtime == "claude-code"
 
 
 # --- settings.json --------------------------------------------------------
