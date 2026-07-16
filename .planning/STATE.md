@@ -10,9 +10,9 @@
   adapter shipped alongside phase 5, ahead of schedule
 - Next action: phase 4 (Drift model) — manifest w/ source ref + content hashes;
   `aoh status` / `sync` / `capture`; `--link` dev mode
-- Docs site (`docs-site/`) shipped 2026-07-16, not yet deployed — Pages needs to be
-  enabled and `.github/workflows/docs-deploy.yml` pushed with a `workflow`-scoped token
-  (see that session log entry)
+- Docs site LIVE at https://agenticdevops.github.io/aoh/ (Pages deploy green
+  2026-07-16; auto-redeploys on push touching docs-site/**). Adapter work + codex
+  tutorial pushed 2026-07-16 (16 commits, through 10229e0)
 
 ## Repo facts
 
