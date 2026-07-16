@@ -207,6 +207,32 @@ def test_skill_frontmatter_name_rewritten_dir_and_content_match(tmp_path: Path) 
         assert "description:" in frontmatter
 
 
+def test_rewritten_skill_md_preserves_frontmatter_structure(tmp_path: Path) -> None:
+    # Regression: the rewrite must change ONLY the frontmatter `name:` line,
+    # byte-for-byte otherwise. A prior bug dropped the trailing newline of
+    # the frontmatter segment, gluing the closing `---` delimiter onto the
+    # last frontmatter line (e.g. `description: ...---`), which is malformed
+    # frontmatter and corrupts the description value.
+    materialize(tmp_path)
+    workspace = tmp_path / "workspace"
+    for skill in _SKILLS:
+        source_text = (
+            PROJECT_ROOT / "collections/core/kubeops/skills" / skill / "SKILL.md"
+        ).read_text(encoding="utf-8")
+        rewritten_text = (
+            workspace / ".agents" / "skills" / f"ops-{skill}" / "SKILL.md"
+        ).read_text(encoding="utf-8")
+
+        expected = source_text.replace(f"name: {skill}\n", f"name: ops-{skill}\n", 1)
+        assert rewritten_text == expected
+
+        # Belt and braces: the closing delimiter must stand on its own line,
+        # and no frontmatter line may have `---` glued onto its end.
+        closing = rewritten_text.index("\n---\n", 3)
+        frontmatter = rewritten_text[4:closing]
+        assert not any(line.endswith("---") for line in frontmatter.splitlines())
+
+
 def test_skill_scripts_copied_alongside(tmp_path: Path) -> None:
     materialize(tmp_path)
     workspace = tmp_path / "workspace"

@@ -89,7 +89,11 @@ def _rewrite_skill_frontmatter_name(skill_md: Path, *, wrapped_name: str) -> Non
     if not replaced:
         raise PackError(f"{skill_md} frontmatter is missing a name: line")
 
-    new_frontmatter = "\n".join(rewritten)
+    # splitlines() drops the frontmatter segment's trailing newline; restore
+    # it so the closing `---` delimiter stands on its own line instead of
+    # being glued to the last frontmatter line (regression: malformed
+    # frontmatter that corrupted the description value).
+    new_frontmatter = "\n".join(rewritten) + "\n"
     skill_md.write_text(f"---{new_frontmatter}---{body}", encoding="utf-8")
 
 
