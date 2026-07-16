@@ -6,6 +6,9 @@ from pathlib import Path
 from shutil import copytree
 
 from aoh.adapters._k8s import (
+    INHERIT_DIAGNOSTIC as _INHERIT_DIAGNOSTIC,
+)
+from aoh.adapters._k8s import (
     render_overlay_prepare_script,
     render_provision_script,
     validate_binding_fields,
@@ -15,11 +18,6 @@ from aoh.pack import Binding, Pack, PackError, Role, load_role, load_team
 
 # Re-exported for backward compatibility — AdapterResult now lives in base.py.
 __all__ = ["AdapterResult", "HermesAdapter", "install_hermes_agent"]
-
-_INHERIT_DIAGNOSTIC = (
-    "access=inherit: no RBAC boundary — agent acts with the user's "
-    "credentials, context-pinned only"
-)
 
 
 def generate_hermes_adapter(pack: Pack, output_dir: Path | str) -> AdapterResult:

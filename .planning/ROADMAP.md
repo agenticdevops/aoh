@@ -16,9 +16,9 @@ Pack format + validator + Hermes adapter producing launchable role profiles.
 | 1 | Progressive disclosure | Skills-only pack validates; workflows/roles/teams/models optional | ✅ done |
 | 2 | Collapse Workflow kind | Workflows become process skills; spec v1alpha2; migrate example packs | ✅ done |
 | 2.5 | KubeOps pack + minimal Binding | kubeops pack; kind: Binding (role × target); RBAC read-only materialization; demo walkthrough + live RBAC denial proof | ✅ done |
-| 3 | Adapter interface | Extract `RuntimeAdapter` protocol from hermes.py; CLI → `aoh install --runtime <x>` | pending |
+| 3 | Adapter interface | Extract `RuntimeAdapter` protocol from hermes.py; CLI → `aoh install --runtime <x>` | ✅ done |
 | 4 | Drift model | Manifest w/ source ref + content hashes; `aoh status` / `sync` / `capture`; `--link` dev mode | pending |
-| 5 | Claude Code adapter | Pack → skills + CLAUDE.md + agent defs; proves engine-neutrality | pending |
+| 5 | Claude Code adapter | Pack → skills + CLAUDE.md + agent defs; proves engine-neutrality | ✅ done (Codex adapter shipped alongside, ahead of schedule — see v0.3+ parking lot) |
 | 6 | Eval runner | Run pack evals against generated profiles; gate for cheap-model trust | pending |
 | 7 | Binding layer | Full inventory pattern: binding groups, shared target vars, multi-target fan-out; site repo layout (minimal Binding shipped in 2.5) | pending |
 | 8 | import-runbook | Skill factory: runbook file → SKILL.md + scripts + eval via frontier model | pending |
@@ -30,8 +30,8 @@ second adapter; 4 before more installs exist in the wild; 5 proves the neutralit
 
 ## Milestone v0.3+ (parking lot)
 
-- Codex adapter (`.agents/skills` + AGENTS.md), Goose adapter (recipes, native lead/worker
-  models — first target for ModelProfile escalation), OpenCode adapter
+- Goose adapter (recipes, native lead/worker models — first target for ModelProfile
+  escalation), OpenCode adapter (Codex adapter shipped in phase 5, ahead of schedule)
 - Registry/versioning, pack dependencies
 - More vertical slices: k8s crashloop triage, terraform plan review, service health report,
   incident timeline, ML training triage

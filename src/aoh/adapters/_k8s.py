@@ -1,8 +1,9 @@
 """Shared, runtime-agnostic kubernetes rendering helpers.
 
 Used by every runtime adapter (hermes, claude-code, codex) that materializes a
-scoped RBAC identity + kubeconfig for a Binding. Keeping this module free of
-runtime-specific concepts keeps the engine-neutral rule intact: only
+scoped RBAC identity + kubeconfig for a Binding, and also renders the
+`access: inherit` overlay script shared across all three. Keeping this module
+free of runtime-specific concepts keeps the engine-neutral rule intact: only
 `src/aoh/adapters/<runtime>.py` files know about a specific agent runtime.
 """
 
@@ -15,6 +16,11 @@ from aoh.pack import Binding, PackError
 
 
 READONLY_VERBS = ("get", "list", "watch")
+
+INHERIT_DIAGNOSTIC = (
+    "access=inherit: no RBAC boundary — agent acts with the user's "
+    "credentials, context-pinned only"
+)
 
 KUBECTL_READ_COMMANDS = (
     "get",

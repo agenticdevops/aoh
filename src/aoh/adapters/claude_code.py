@@ -27,6 +27,9 @@ from pathlib import Path
 from shutil import copytree
 
 from aoh.adapters._k8s import (
+    INHERIT_DIAGNOSTIC as _INHERIT_DIAGNOSTIC,
+)
+from aoh.adapters._k8s import (
     KUBECTL_MUTATION_COMMANDS,
     KUBECTL_READ_COMMANDS,
     render_overlay_prepare_script,
@@ -40,11 +43,6 @@ __all__ = ["ClaudeCodeAdapter"]
 
 
 _HELM_MUTATION_COMMANDS = ("install", "upgrade", "uninstall", "rollback")
-
-_INHERIT_DIAGNOSTIC = (
-    "access=inherit: no RBAC boundary — agent acts with the user's "
-    "credentials, context-pinned only"
-)
 
 
 def _kubectl_guard_script() -> str:

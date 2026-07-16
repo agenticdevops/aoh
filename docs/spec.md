@@ -61,14 +61,25 @@ Adapters generate one invokable command per skill, namespaced under the `ops` pr
 The canonical command name is `ops:<skill>`; each adapter maps the separator to its
 runtime's convention:
 
-| Runtime | Surface | Command |
-|---|---|---|
-| Hermes | `commands/ops-<skill>.md` | `ops-<skill>` |
-| Claude Code | `commands/ops/<skill>.md` (subdir → namespace) | `/ops:<skill>` |
-| Codex | `prompts/ops-<skill>.md` | `/ops-<skill>` |
-| OpenCode | `command/ops-<skill>.md` | `/ops-<skill>` |
+| Runtime | Surface | Command | Status |
+|---|---|---|---|
+| Hermes | `commands/ops-<skill>.md` | `ops-<skill>` | shipped |
+| Claude Code | `.claude/commands/ops/<skill>.md` (subdir → namespace) | `/ops:<skill>` | shipped |
+| Codex | `.agents/skills/ops-<skill>/SKILL.md` (frontmatter `name` rewritten, no separate command file) | `$ops-<skill>` | shipped |
+| OpenCode | `command/ops-<skill>.md` | `/ops-<skill>` | planned |
 
-The prefix lives in the spec; separator mapping lives in adapters.
+The prefix lives in the spec; separator mapping lives in adapters. Codex has no
+custom-prompt surface distinct from skills (project-scoped custom prompts are
+deprecated on 0.144.x) — the skill itself, wrapper-named `ops-<skill>`, is both the
+capability and the invokable command. See `docs/adapters.md` for the full workspace
+layouts, threat model, and guardrail mapping per runtime.
+
+Materialize any of these surfaces with the runtime-neutral CLI entrypoint:
+`aoh install --runtime <hermes|claude-code|codex> <pack> --output <dir>
+[--binding <file>] [--role <name>] [--profile <name>] [--model <hint>]`. This is the
+single call into `ADAPTERS[<runtime>].materialize(...)`; the older `install-hermes*`
+subcommands remain as unchanged compat handlers, with `install-hermes-agent` printing
+a stderr hint pointing at `aoh install --runtime hermes`.
 
 ## Org/Project Role Model
 

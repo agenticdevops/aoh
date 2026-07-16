@@ -6,11 +6,10 @@
 ## Position
 
 - Milestone: v0.2 (Simplify + Solidify)
-- Current phase: 2.5 (KubeOps pack + minimal Binding) — ✅ done
-- Next action: phase 3 (Adapter interface) — extract `RuntimeAdapter` protocol from
-  hermes.py, CLI → `aoh install --runtime <x>`. Live RBAC demo done 2026-07-15
-  (provision + Forbidden proof on kind-sresquad-demo); agent-chat walkthrough
-  (docs/demos/kubeops-readonly.md §4) still open for user
+- Current phase: 3 (Adapter interface) + 5 (Claude Code adapter) — ✅ done, Codex
+  adapter shipped alongside phase 5, ahead of schedule
+- Next action: phase 4 (Drift model) — manifest w/ source ref + content hashes;
+  `aoh status` / `sync` / `capture`; `--link` dev mode
 - Docs site (`docs-site/`) shipped 2026-07-16, not yet deployed — Pages needs to be
   enabled and `.github/workflows/docs-deploy.yml` pushed with a `workflow`-scoped token
   (see that session log entry)
@@ -19,10 +18,52 @@
 
 - Remote: https://github.com/agenticdevops/aoh.git (main tracks origin/main)
 - Nested repo inside `experiments/` parent tree (parent gitignores `aoh/`)
-- Test command: `rtk proxy uv run pytest -q` — 31 passing (v0.2 phase 2.5 + review fixes)
+- Test command: `rtk proxy uv run pytest -q` — 114 passing (v0.2 phases 3+5: adapter
+  protocol + Claude Code + Codex adapters)
 - Validate: `uv run aoh validate <pack>`
 
 ## Session log
+
+### 2026-07-16 — Claude Code + Codex adapters shipped (phases 3+5, SDD)
+
+- Executed via SDD (spec-driven development): protocol extraction, both adapters,
+  unified CLI, inherit mode, docs — commits `31d90b4`, `25afdc8`, `6e8f523`+`8b02708`,
+  `ec0f6f8`, `770c999`, `19a82e3`
+- `RuntimeAdapter` Protocol + `ADAPTERS` registry extracted from hermes.py
+  (`src/aoh/adapters/base.py`); Claude Code adapter (`.claude/skills`,
+  `.claude/commands/ops/<skill>.md` → `/ops:<skill>`, `.claude/agents/<role>.md`,
+  `.claude/settings.json` deny/allow + fail-closed `PreToolUse` `kubectl-guard.sh`
+  hook, `CLAUDE.md`); Codex adapter (`.agents/skills/ops-<skill>/` with frontmatter
+  `name` rewritten, invoked `$ops-<skill>`, `AGENTS.md`, `.codex/config.toml`,
+  best-effort `.codex/rules/kubectl-readonly.rules` execpolicy guardrail with 3
+  documented bypass gaps)
+- Unified CLI: `aoh install --runtime <hermes|claude-code|codex> <pack> --output <dir>`
+  routes into `ADAPTERS[<runtime>].materialize(...)`; old `install-hermes*`
+  subcommands kept as unchanged compat handlers, `install-hermes-agent` prints a
+  stderr deprecation hint
+- `Binding.access: scoped | inherit` (default `scoped`); inherit mode writes NO
+  credentials — `prepare-overlay.sh` resolves cluster/user names from a redacted
+  `kubectl config view` (never `--raw`), self-verifies via `--minify` + a
+  credential-shape grep
+- ClusterRole `aoh-readonly` narrowed from a `*/*` wildcard to an explicit
+  get/list/watch resource allowlist (Secrets, configmaps, nodes/proxy, pods/exec
+  excluded) — BREAKING for previously provisioned identities, shared across all three
+  adapters via `src/aoh/adapters/_k8s.py`
+- Design went through cross-AI review (external reviewer: codex gpt-5.6-sol),
+  3 rounds — v1 approved in brainstorming, v2 REWORK (12 findings, all adjudicated),
+  convergence round APPROVE-WITH-CHANGES, third round (user-relayed critical review on
+  installed codex-cli 0.144.5) added the execpolicy rules file + documented gaps
+- Live validation against `kind-sresquad-demo` (real cluster, not just unit tests):
+  headline proof is `kubectl auth can-i get secrets` flipping from `yes` (old wildcard
+  role) to **no** (new allowlist) after re-running `provision.sh`; full transcript incl.
+  `codex execpolicy check` proofs (caught + 3 gap forms) and adversarial Claude Code
+  hook proofs in `docs/demos/adapter-validation-2026-07-16.md`
+- Docs: `docs/spec.md` Commands table flipped to shipped + corrected Codex surface
+  (`.agents/skills/ops-<skill>/`, not `prompts/`); new `docs/adapters.md` (workspace
+  layouts, threat table, guardrail mapping, the compound-Bash-command hook caveat);
+  CHANGELOG updated
+- Final suite: 114 passing; all 3 packs (kubeops, docker-disk-cleanup,
+  acme-platform-ops) validate clean
 
 ### 2026-07-16 — docs site built + deploy wired (Docusaurus, subagent-driven development)
 - Built via subagent-driven development: 7 tasks, each with a review, plus a final
