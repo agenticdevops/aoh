@@ -23,7 +23,7 @@ docs — including a "two walls" explainer that names what each wall is and is n
 | ► Protocol shape | Single `materialize(request: MaterializeRequest) -> AdapterResult`; request carries pack, output_dir, role/team, binding, model intent, workdir; runtime-specific options validated by the adapter, not in the protocol; `AdapterResult` gains `diagnostics: list[str]` (spec.md requires adapters to warn on unenforceable requirements) | Review F8: `profile/provider/cwd` were Hermes-isms; diagnostics needed |
 | CLI | New `aoh install --runtime <x>`; ► old subcommands stay as UNCHANGED compat handlers (not "aliases") — only `install-hermes-agent` reroutes through the new path, with a stderr deprecation hint | Review F9: adapt/pack/team commands are different operations |
 | Claude Code read-only | ► Hard boundary = scoped RBAC kubeconfig. Best-effort runtime guardrail = `settings.json` deny + a generated `PreToolUse` hook that parses commands and rejects kubectl mutations. Guardrail is NOT called a security boundary | Review F2: `Bash()` patterns bypassable (`--context` prefix, abs path, `sh -c`); hook parses the effective command |
-| Codex read-only | ► Hard boundary = scoped RBAC kubeconfig. Runtime side: `approval_policy`/`sandbox_mode` are coarse; AGENTS.md states the contract. Documented gap | Review F3/F6 |
+| Codex read-only | ► Hard boundary = scoped RBAC kubeconfig. Best-effort guardrail = `.codex/rules/kubectl-readonly.rules` (execpolicy: kubectl mutation verbs → `forbidden`) + `approval_policy`; prefix rules do NOT catch `--context`-first, abs-path, or `sh -c` forms (verified) — gaps documented, no hook-blocker (PreToolUse can't block in Codex). AGENTS.md states the contract | Review F3/F6 + third-round review |
 | Output target | Self-contained workspace dir + `launch.sh`; never touches `~/.claude` / `~/.codex` | Non-invasive |
 | Access modes | ► `spec.access: scoped \| inherit` (default scoped). Inherit = OVERLAY kubeconfig (no credential copy — see below) | Review F4: snapshot broke exec-plugin auth + violated "never store secrets" |
 | Multi-cluster | One binding per cluster; one workspace/profile per binding; switch = directory/profile choice; never `kubectl config use-context` | v1 |
@@ -32,7 +32,7 @@ docs — including a "two walls" explainer that names what each wall is and is n
 ## Grounded runtime formats (corrected per review F3/F6, codex-cli 0.144.x)
 
 - **Claude Code**: `.claude/skills/<name>/SKILL.md`; commands `.claude/commands/ops/<skill>.md` → `/ops:<skill>`; agents `.claude/agents/<name>.md`; `settings.json` `{env, permissions{allow,deny,defaultMode}, hooks{PreToolUse}}`; memory `CLAUDE.md`.
-- **Codex** (0.144.x): project skills `.agents/skills/<name>/SKILL.md` (custom prompts are DEPRECATED, user-global only — not used); memory `AGENTS.md` (root, nested toward CWD); project config `.codex/config.toml` (trusted projects only) with keys `model`, `model_reasoning_effort` (`minimal..xhigh`), `approval_policy` (`untrusted|on-request|never`), `sandbox_mode` (`read-only|workspace-write|danger-full-access`); kubectl needs network → `sandbox_mode = "workspace-write"` + `[sandbox_workspace_write] network_access = true`, documented as a trade-off. The `ops` namespace is kept by naming wrapper skills `ops-<skill>`.
+- **Codex** (0.144.x): project skills `.agents/skills/<name>/SKILL.md` (custom prompts are DEPRECATED, user-global only — not used); memory `AGENTS.md` (root, nested toward CWD); project config `.codex/config.toml` (trusted projects only) with keys `model`, `model_reasoning_effort` (`minimal..xhigh`), `approval_policy` (`untrusted|on-request|never`), `sandbox_mode` (`read-only|workspace-write|danger-full-access`); kubectl needs network → `sandbox_mode = "workspace-write"` + `[sandbox_workspace_write] network_access = true`, documented as a trade-off. ALSO available (verified on 0.144.5): experimental command-policy rules `.codex/rules/*.rules` (`codex execpolicy check`; `decision = "forbidden"` blocks matching commands) and stable lifecycle hooks — BUT PreToolUse hooks cannot block in Codex (`continue: false` unsupported; tool call proceeds), so rules are the only best-effort deny surface. Project-local config/hooks/rules all require a trusted project. The `ops` namespace is kept by naming wrapper skills `ops-<skill>`.
 
 ## Architecture
 
@@ -98,7 +98,7 @@ excluded by default".
 | Runtime | Hard enforcement boundary | Best-effort runtime guardrail | Required assumptions |
 |---|---|---|---|
 | Claude Code | cluster RBAC via scoped identity | `permissions.deny` + PreToolUse hook | agent uses the workspace kubeconfig; host creds not isolated unless sandboxed |
-| Codex | cluster RBAC via scoped identity | approval/sandbox policy (not kubectl-aware) | same |
+| Codex | cluster RBAC via scoped identity | execpolicy rules (prefix-based, documented gaps) + approval policy | same |
 | Hermes | cluster RBAC via scoped identity | none | same |
 
 Honest statement everywhere: the scoped kubeconfig is the **default identity**, not
@@ -140,6 +140,9 @@ reconcile` blocked). Guardrail, not boundary — CLAUDE.md says so.
                                                    frontmatter `name:` REWRITTEN to
                                                    ops-<skill> (dir rename alone does
                                                    not set the invocation name)
+  .codex/rules/kubectl-readonly.rules              best-effort deny: kubectl/helm
+                                                   mutation verbs → forbidden; header
+                                                   comment lists the known bypass gaps
   AGENTS.md                                        role, posture, "RBAC is the boundary"
   .codex/config.toml                               model, approval_policy="on-request",
                                                    sandbox_mode="workspace-write",
@@ -147,9 +150,11 @@ reconcile` blocked). Guardrail, not boundary — CLAUDE.md says so.
   kubeconfig | kubeconfig-overlay, provision.sh    per access mode
   launch.sh                                        exports KUBECONFIG, execs codex
 ```
-Diagnostics emitted: "Codex has no kubectl-aware guardrail; network access enabled for
-kubectl; RBAC is the enforcement boundary." Config note documents the trusted-project
-requirement.
+Diagnostics emitted: "Codex has no complete Claude-style kubectl guardrail — execpolicy
+rules are best-effort prefix matches with known bypass gaps (--context-first, absolute
+path, shell wrappers); network access enabled for kubectl; RBAC is the enforcement
+boundary." Config note documents the trusted-project requirement (config/hooks/rules
+only load in trusted projects).
 
 ### Access modes (review F4 — inherit redesigned, no credential copy)
 
@@ -204,9 +209,12 @@ stderr hint pointing at `aoh install --runtime hermes`.
   provision; `kubectl auth can-i` matrix — `get pods` yes, `delete pods` no,
   `get secrets` **no**, `create pods/exec` no, `get nodes/proxy` no; delete → Forbidden;
   `codex exec` probe inside the workspace asking it to list available skills
-  (verifies `.agents/skills` discovery); Claude Code guardrail exercised via the hook
-  unit tests, NOT a live session — the live-session claim is explicitly out of scope
-  and the docs say the hook is script-tested.
+  (verifies `.agents/skills` discovery); `codex execpolicy check` proofs against the
+  generated rules file — `kubectl delete pod x` → forbidden, `kubectl get pods` →
+  allow, AND the three known-gap forms (`--context`-first, abs path, `sh -c`) shown
+  as no-match to keep the gap documentation honest; Claude Code guardrail exercised
+  via the hook unit tests, NOT a live session — the live-session claim is explicitly
+  out of scope and the docs say the hook is script-tested.
 
 ## Docs updates
 
@@ -240,4 +248,14 @@ judged sound. Verdict APPROVE-WITH-CHANGES; the 4 changes are folded in above:
 overlay construction resolves cluster/user names via redacted `kubectl config view`
 jsonpath + `--minify` verification (HIGH); PreToolUse hook specified fail-closed with
 tuple-aware verb matching (MEDIUM); codex wrapper rewrites SKILL.md frontmatter `name`
-(MEDIUM); RBAC allowlist scope justified (LOW). FINAL.
+(MEDIUM); RBAC allowlist scope justified (LOW).
+
+Third round (user-relayed codex critical review, verified on installed 0.144.5 —
+`codex execpolicy check` exists, `hooks` feature stable): "no kubectl-aware guardrail"
+was overstated. Accepted all 4: Codex adapter now generates
+`.codex/rules/kubectl-readonly.rules` as a best-effort deny (execpolicy `forbidden`),
+with the reviewer's own verified bypass gaps (--context-first, abs path, sh -c)
+documented in the rules header + diagnostics; Codex PreToolUse hooks canNOT block
+(`continue: false` unsupported) so no hook-blocker is claimed; runtime-facts section
+gains rules/hooks + trusted-project scope; validation gains execpolicy check proofs
+including the no-match gap demonstrations. FINAL.
