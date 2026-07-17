@@ -394,26 +394,42 @@ def test_load_site_rejects_symlinked_bindings_dir(tmp_path: Path) -> None:
         load_site(tmp_path)
 
 
-def test_load_site_rejects_duplicate_binding_names(tmp_path: Path) -> None:
+def test_load_site_bindings_dir_glob_ignores_non_yaml_extension(tmp_path: Path) -> None:
+    # Renamed from the misleadingly-named "rejects_duplicate_binding_names": this
+    # exercises glob filtering (`*.yaml` only, `*.yml` ignored), NOT the
+    # `seen_names` duplicate-rejection branch in `_load_bindings_dir` — filename
+    # stem must equal metadata.name, so two *.yaml files can never decode to the
+    # same binding name on one filesystem; that branch is covered directly below.
     write_site_yaml(tmp_path, _minimal_site_spec())
-    # Two different site pack keys pointing at bindings with the same metadata.name
-    # is impossible from distinct filenames since stem must equal name; instead
-    # force a duplicate by having the same name appear via two differently-cased
-    # dirs is not applicable on case-sensitive fs — so simulate via direct API
-    # collision: two files both named to the same stem is impossible on one fs,
-    # so duplicate detection is exercised through metadata.name mismatch protection
-    # already covered above. Here: bindingsDir must not silently allow two entries
-    # with the same declared metadata.name through unrelated filenames — impossible
-    # given the equality rule, but we still assert the loader raises PackError if
-    # somehow two files decode to the same name (defensive path via non-.yaml dupe).
     write_binding_file(tmp_path / "bindings" / "dup.yaml", "dup", pack="kubeops")
     write_binding_file(tmp_path / "bindings" / "dup.yml", "dup", pack="kubeops")
 
-    # dup.yml won't match *.yaml glob in most implementations; this test instead
-    # verifies that if two matching binding files exist with equal names the loader
-    # rejects. Since filenames constrain 1:1, we assert no crash and single binding.
     site = load_site(tmp_path)
     assert len([b for b in site.bindings if b.name == "dup"]) == 1
+
+
+def test_load_bindings_dir_rejects_duplicate_binding_names_directly(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Direct unit test of the `seen_names` guard in `_load_bindings_dir`, since
+    # it is unreachable through the public `load_site` glob-based path (stem ==
+    # metadata.name makes two *.yaml files with the same binding name
+    # impossible on one filesystem).
+    from aoh.site import _load_bindings_dir
+
+    bindings_dir = tmp_path / "bindings"
+    path_a = bindings_dir / "a.yaml"
+    path_b = bindings_dir / "b.yaml"
+    write_binding_file(path_a, "dup", pack="kubeops")
+    write_binding_file(path_b, "dup", pack="kubeops")
+
+    # Force both files to decode as if their filename stem equals "dup" so the
+    # stem-mismatch check doesn't fire before the dup-name check does.
+    monkeypatch.setattr(Path, "stem", property(lambda self: "dup"))
+
+    packs = {"kubeops": PackSource(repo="https://x", subdir="kubeops")}
+    with pytest.raises(PackError, match="Duplicate binding name"):
+        _load_bindings_dir(tmp_path, "bindings/", packs, {})
 
 
 def test_load_site_binding_group_must_exist(tmp_path: Path) -> None:

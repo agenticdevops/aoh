@@ -97,6 +97,33 @@ def test_fresh_install_writes_files_and_manifest(tmp_path: Path) -> None:
     assert result.output_dir == workspace
 
 
+def test_fresh_install_explicit_binding_name_param_used_when_request_binding_unset(
+    tmp_path: Path,
+) -> None:
+    # Differentiates the explicit `binding_name` kwarg from the
+    # `request.binding.name` fallback: site fan-out installs pass a binding
+    # name directly (the binding was resolved upstream via
+    # resolve_binding_settings, not attached to the MaterializeRequest), so
+    # this path must be exercised on its own — not just via a request.binding.
+    pack = load_pack(KUBEOPS_PACK)
+    workspace = tmp_path / "workspace"
+    fake = FakeAdapter({"a.txt": "hello\n"})
+    request = MaterializeRequest(pack=pack, output_dir=workspace)  # no .binding set
+
+    install_workspace(
+        adapter=fake,
+        request=request,
+        source={"repo": None, "subdir": "", "ref": "HEAD"},
+        commit=None,
+        naming_scheme=NAMING_SCHEME_SITE_QUALIFIED,
+        binding_name="kubeops-sresquad",
+    )
+
+    manifest = read_manifest(workspace)
+    assert manifest is not None
+    assert manifest["binding"] == "kubeops-sresquad"
+
+
 def test_fresh_install_leaves_no_journal_or_staging(tmp_path: Path) -> None:
     workspace, _fake, _result = _install(tmp_path, files={"a.txt": "hello\n"})
 

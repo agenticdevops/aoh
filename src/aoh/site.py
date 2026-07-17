@@ -12,6 +12,9 @@ from aoh.paths import safe_segment
 
 _SITE_API_VERSION = "openagentix.io/v1alpha2"
 _USER_CONFIG_API_VERSION = "openagentix.io/v1alpha2"
+_SITE_LOCK_API_VERSION = "openagentix.io/v1alpha2"
+
+SITE_LOCK_FILENAME = "site.lock.yaml"
 
 
 # ---------------------------------------------------------------------------
@@ -339,6 +342,119 @@ def resolve_binding_settings(
         model=model,
         target=target,
     )
+
+
+# ---------------------------------------------------------------------------
+# SiteLock — minimal Phase A lock (F1 subset)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class LockedPack:
+    repo: str | None
+    subdir: str
+    requested_ref: str
+    resolved_commit: str | None
+    local: bool = False
+    local_path: Path | None = None
+
+
+@dataclass(frozen=True)
+class SiteLock:
+    root: Path
+    packs: dict[str, LockedPack]
+
+
+def load_site_lock(root: Path | str) -> SiteLock | None:
+    """Load `site.lock.yaml` beside `site.yaml`. Returns None if the lock
+    file does not exist yet (a site with no lock)."""
+    site_root = Path(root)
+    lock_path = site_root / SITE_LOCK_FILENAME
+    if not lock_path.exists():
+        return None
+
+    doc = _read_yaml(lock_path)
+
+    if doc.get("apiVersion") != _SITE_LOCK_API_VERSION:
+        raise PackError(f"{lock_path} apiVersion must be {_SITE_LOCK_API_VERSION}")
+    if doc.get("kind") != "SiteLock":
+        raise PackError(f"{lock_path} kind must be SiteLock")
+
+    packs_raw = doc.get("packs") or {}
+    if not isinstance(packs_raw, dict):
+        raise PackError(f"{lock_path} packs must be a mapping")
+
+    packs: dict[str, LockedPack] = {}
+    for name, value in packs_raw.items():
+        pname = str(name)
+        if not isinstance(value, dict):
+            raise PackError(f"{lock_path} packs.{pname} must be a mapping")
+
+        local = bool(value.get("local", False))
+        if local:
+            path_raw = value.get("path")
+            if not path_raw:
+                raise PackError(f"{lock_path} packs.{pname} local entry requires `path`")
+            packs[pname] = LockedPack(
+                repo=None,
+                subdir="",
+                requested_ref="HEAD",
+                resolved_commit=None,
+                local=True,
+                local_path=Path(str(path_raw)),
+            )
+            continue
+
+        repo = value.get("repo")
+        if not repo:
+            raise PackError(f"{lock_path} packs.{pname} requires `repo` (or `local: true`)")
+        subdir = str(value.get("subdir", ""))
+        requested_ref = str(value.get("requestedRef", "HEAD"))
+        resolved_commit_raw = value.get("resolvedCommit")
+        resolved_commit = str(resolved_commit_raw) if resolved_commit_raw else None
+        packs[pname] = LockedPack(
+            repo=str(repo),
+            subdir=subdir,
+            requested_ref=requested_ref,
+            resolved_commit=resolved_commit,
+            local=False,
+            local_path=None,
+        )
+
+    return SiteLock(root=site_root, packs=packs)
+
+
+def write_site_lock(root: Path | str, lock: SiteLock) -> Path:
+    """Write `site.lock.yaml` beside `site.yaml`, camelCase keys."""
+    site_root = Path(root)
+    lock_path = site_root / SITE_LOCK_FILENAME
+
+    packs_doc: dict[str, Any] = {}
+    for name, entry in lock.packs.items():
+        if entry.local:
+            packs_doc[name] = {
+                "local": True,
+                "path": str(entry.local_path) if entry.local_path is not None else None,
+            }
+        else:
+            packs_doc[name] = {
+                "repo": entry.repo,
+                "subdir": entry.subdir,
+                "requestedRef": entry.requested_ref,
+                "resolvedCommit": entry.resolved_commit,
+            }
+
+    doc = {
+        "apiVersion": _SITE_LOCK_API_VERSION,
+        "kind": "SiteLock",
+        "packs": packs_doc,
+    }
+
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("w", encoding="utf-8") as handle:
+        yaml.safe_dump(doc, handle, sort_keys=False)
+
+    return lock_path
 
 
 # ---------------------------------------------------------------------------
