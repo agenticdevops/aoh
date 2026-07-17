@@ -41,6 +41,44 @@ def test_load_binding_happy_path(tmp_path: Path) -> None:
     assert binding.name == "kubeops-sresquad"
     assert binding.role == "kubeops-copilot"
     assert binding.target == {"kubeContext": "kind-sresquad-demo", "namespace": "default"}
+    assert binding.pack is None
+    assert binding.group is None
+    assert binding.runtime is None
+
+
+def test_load_binding_optional_fields_default_none(tmp_path: Path) -> None:
+    binding = load_binding(write_binding(tmp_path / "binding.yaml"))
+
+    assert binding.pack is None
+    assert binding.group is None
+    assert binding.runtime is None
+
+
+def test_load_binding_reads_pack_group_runtime(tmp_path: Path) -> None:
+    path = tmp_path / "binding.yaml"
+    write(
+        path,
+        """
+        apiVersion: openagentix.io/v1alpha2
+        kind: Binding
+        metadata:
+          name: kubeops-sresquad
+        spec:
+          role: kubeops-copilot
+          pack: kubeops
+          group: prod
+          runtime: claude-code
+          target:
+            kubeContext: kind-sresquad-demo
+            namespace: default
+        """,
+    )
+
+    binding = load_binding(path)
+
+    assert binding.pack == "kubeops"
+    assert binding.group == "prod"
+    assert binding.runtime == "claude-code"
 
 
 def test_load_binding_rejects_wrong_kind(tmp_path: Path) -> None:

@@ -55,6 +55,9 @@ class Binding:
     role: str
     target: dict[str, Any]
     access: str = "scoped"
+    pack: str | None = None
+    group: str | None = None
+    runtime: str | None = None
 
 
 def load_pack(root: Path | str) -> Pack:
@@ -177,7 +180,15 @@ def load_binding(path: Path | str) -> Binding:
     if access not in {"scoped", "inherit"}:
         raise PackError(f"Binding `{name}` spec.access must be scoped or inherit")
 
-    return Binding(name=name, role=str(spec["role"]), target=target, access=access)
+    return Binding(
+        name=name,
+        role=str(spec["role"]),
+        target=target,
+        access=access,
+        pack=_optional_str(spec.get("pack")),
+        group=_optional_str(spec.get("group")),
+        runtime=_optional_str(spec.get("runtime")),
+    )
 
 
 def validate_pack(pack: Pack) -> None:
