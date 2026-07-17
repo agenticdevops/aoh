@@ -1,180 +1,183 @@
-# v0.3 — Fleet Lifecycle: Milestone Design
+# v0.3 — Fleet Lifecycle: Milestone Design v2
 
-Date: 2026-07-17. Approved in brainstorming (conversation-driven across 2026-07-16/17).
-Status: draft pending cross-AI review (codex).
+Date: 2026-07-17. v1 reworked after external review (codex gpt-5.6-sol, verdict REWORK,
+12 findings — all adjudicated; see "Review adjudication" at bottom). Status: v2 pending
+convergence review.
 
-## Vision
+## Vision (unchanged)
 
-Close the loop that makes AOH a fleet system rather than a pack compiler:
-
-```
-draft skill locally (in Claude, wherever you work)
-  → use it immediately (Layer 0, plain agentskills)
-  → promote to the org pack repo (git = truth)
-  → publish via registry index (git-hosted)
-  → pin in the site repo (inventory: WHAT version × WHERE)
-  → materialize the fleet (adapters, one command, N workspaces)
-  → operate from inside a session (fleet console)
-  → improve during incidents → capture back  → loop
-```
-
-Ansible is the reference frame throughout: role⇄skill, collection⇄pack,
-inventory⇄site repo, galaxy⇄registry index, control node⇄fleet console,
-ad-hoc→role ladder ⇄ draft→promote ladder. Deliberate difference: AOH has no
-templating engine — the agent (or a deterministic script) renders; AOH never executes.
+draft skill locally → use immediately → promote to pack repo (git = truth) → publish
+(registry index) → pin + lock (site repo) → materialize fleet (adapters) → operate
+in-session (console) → improve → capture back → loop. Ansible frame: role⇄skill,
+collection⇄pack, inventory⇄site, galaxy⇄registry, control node⇄console,
+ad-hoc→role ⇄ draft→promote. AOH never executes; no templating engine.
 
 ## Roadmap restructure
 
-- v0.2 CLOSES with phases 1, 2, 2.5, 3, 5 done (validator simplification, v1alpha2,
-  kubeops+Binding, adapter interface, Claude Code + Codex adapters).
-- v0.2 phases 4 (drift), 7 (full inventory), 8 (import-runbook) MOVE into v0.3 —
-  they converged into one story. Phase 6 (eval runner) stays parked (v0.4 candidate).
-- v0.3 = five phases, order A→B→C→D→E (decided): each independently shippable.
+- v0.2 closes (phases 1, 2, 2.5, 3, 5 done). Phases 4/7/8 fold into v0.3. Eval runner → v0.4.
+- v0.3 phases: **A foundation (now incl. minimal manifest + convergent install) →
+  B authoring/promote → C registry+lock → D drift status/sync/capture →
+  E console (claude-code, scoped-only)**. Registry search + public discovery, Codex
+  console, inherit-mode console → v0.4.
 
-## Decisions (2026-07-17)
+## Decisions (v2; ► = changed by review)
 
 | Decision | Choice | Why |
 |---|---|---|
-| Sequencing | A foundation → B authoring → C registry → D drift/sync → E console | Config+site substrate everything; authoring = hottest user need; sync needs version resolution; console consumes all |
-| Promote flow | Direct commit to the pack repo by default; `--pr` flag for review-gated repos | User decision — fastest solo loop; teams opt into PR gate |
-| Registry home | New repo `agenticdevops/aoh-registry` with `index.yaml`; orgs mirror privately | Clean separation; private = private index repo; resolution order explicit URL > org registry > public |
-| User config | `~/.aoh/config.yaml` (+ `~/.aoh/repos/` clone cache, `~/.aoh/manifests/`) | git/ansible.cfg analog; names resolve from any cwd |
-| Skills born local | Draft in the runtime's native local dir (`.claude/skills/`, `.agents/skills/`) — usable instantly, zero AOH | Layer 0 already is the draft area; no new draft mechanism |
-| No templating engine | Skill dirs may carry `templates/`/`assets/` — copied verbatim; agent or script renders | Engine-neutral rule; AOH never executes |
-| cwd stability | Every command takes NAMES, config supplies locations, git ops happen in `~/.aoh/repos/` cache | User requirement: never leave the project dir |
+| Sequencing | A→B→C→D→E | ► A now carries the drift-manifest foundation — our own decision "drift before installs multiply" (PROJECT.md 2026-07-14) demands it precede fan-out |
+| Promote flow | Direct commit default, `--pr` opt-in | user decision; ► hardened git semantics below |
+| Registry home | `agenticdevops/aoh-registry`; orgs mirror privately | ► named registries + integrity lock; search/public discovery deferred |
+| User config | `~/.aoh/config.yaml`, cache `~/.aoh/repos/` (0700) | ► loaded lazily — all existing commands work without it |
+| Skills born local | runtime-native local dirs are the draft area | unchanged |
+| cwd stability | names in commands, locations in config, git in cache | unchanged |
+| ► Workspace root ownership | Effective root = CLI flag > UserConfig > default `~/agents`. Site's `workspaceRoot` is ADVISORY (used only if user config silent, and printed loudly) | a remote site file must not direct writes on the operator's machine |
+| ► Path safety | Binding/group/site names validated as single safe path segments in the loader; every output path resolved + asserted under the root; symlinks in bindings dirs rejected; nothing path-like trusted from workspace-editable manifests | fan-out = filesystem writes driven by remote data |
+| ► Structured pack source | `{repo: <git-url>, subdir: <rel-path>, ref: <ref>}` replaces `//subdir` strings (accepted in yaml as either; normalized internally; subdir normalized, no `..`/absolute, symlink-escape rejected; local dirs distinguished from git sources — only git sources support drift/promote) | `//` is URL-ambiguous |
+| ► Convergent install | Materialization = atomic staging (build to temp, swap), owned-file tracking in the manifest, stale owned files removed on re-install; local modifications detected and install refuses (pre-drift, `--discard-local` to override) | copytree accretion = the fork problem at fleet scale |
+| ► Capture reversibility | Manifest records canonical→materialized mapping per artifact + adapter transform id (e.g. codex `ops-` rename); capture inverse-transforms and validates the resulting pack before commit; runtime-generated files (AGENTS.md, config, rules, settings, hooks) never captured | codex rename would corrupt packs |
+| ► Git cache discipline | Bare mirror clones keyed by normalized URL hash; per-repo lock file; every write op uses a fresh temp worktree from freshly-fetched origin default branch; fetch again before push; fast-forward pushes only; same-skill upstream change since promotion base → abort with `--pr` suggestion; identical re-promote = successful no-op printing existing sha; `user.name`/`user.email` verified before commit | mutable pull-cache races + non-FF hazards |
+| ► Registry integrity | Index versions = `{ref, commit}` (+ optional `treeSha256`); site repo gains **`site.lock.yaml`**: registry name, normalized source, subdir, requested ref, resolved commit, pack tree sha256. Installs resolve through the lock; `aoh lock --update` moves it. Mutable refs (`main`) legal but called *tracking refs*, resolved into the lock, movable only by explicit lock update | tags move; branches are mutable; pin ≠ ref |
+| ► Registry trust | Registries are NAMED in UserConfig (`registries: {myorg: url, public: url}` ordered); site pins may say `registry: myorg`; "not found" ≠ "unavailable/unauthorized" — NEVER fall through to a public registry on auth/network failure; chosen registry+source+commit recorded in lock and displayed | dependency confusion |
+| ► Groups | One group per binding in v0.3 (`spec.group`, optional) | merge-order complexity deferred |
+| ► Precedence (split by concern) | target vars: site target defaults → group vars → binding.target. runtime: binding → site default → user default. model: site → user (binding override only if explicitly set). pack: binding.pack → site sole-pack default → error if ambiguous | one blended chain hid distinct concerns |
+| ► Console scope | v0.3 console = Claude Code runtime, `access: scoped` bindings ONLY (inherit bindings rejected with a clear error); Codex console deferred (its skills aren't identity boundaries; `.codex/agents/*.toml` custom agents are the right primitive to evaluate in v0.4) | identity + credential-concentration honesty |
+| ► Secrets language | "AOH does not intentionally manage secrets." Promote/capture copy only regular files under the skill root; reject `.git`, symlinks, devices, sockets, path escapes, oversized files; staged diff shown before direct push; optional secret-scan hook, never claimed complete | old claim unsupportable |
+| ► Schema naming | camelCase in YAML (`workspaceRoot`, `siteLock`) matching existing AOH kinds; apiVersion stays v1alpha2 (new kinds + optional fields; strict validation per kind) | consistency |
 
-## Phase A — Foundation: config, site inventory, fan-out, list
+## Phase A — Foundation: config, site, convergent fan-out, list
 
-### ~/.aoh/config.yaml
+### ~/.aoh/config.yaml (kind: UserConfig, lazy-loaded)
 ```yaml
 apiVersion: openagentix.io/v1alpha2
 kind: UserConfig
-packs:                      # name → source (short name resolved via registry later)
-  kubeops: https://github.com/agenticdevops/aoh//collections/core/kubeops
-  myorg-ops: git@github.com:myorg/ops-pack.git
-site: git@github.com:myorg/ops-site.git      # or a local path
-defaults:
-  runtime: claude-code
-  workspace_root: ~/agents
+packs:
+  kubeops: {repo: https://github.com/agenticdevops/aoh, subdir: collections/core/kubeops}
+  myorg-ops: {repo: git@github.com:myorg/ops-pack.git}
+site: git@github.com:myorg/ops-site.git       # or local path
+registries: {}                                 # named, Phase C
+defaults: {runtime: claude-code, workspaceRoot: ~/agents}
 ```
-Loaded by every command; `aoh config init|get|set` helpers. Local paths and git URLs
-both legal everywhere (git URLs cached under `~/.aoh/repos/<slug>/`, `git pull` on use;
-`//subdir` suffix = pack path inside a repo, ansible-galaxy style).
 
-### site.yaml (in the site repo — the inventory)
+### site.yaml (kind: Site)
 ```yaml
 apiVersion: openagentix.io/v1alpha2
 kind: Site
 metadata: {name: myorg-ops-site}
 spec:
-  workspace_root: ~/agents            # default materialization root (user-overridable)
+  workspaceRoot: ~/agents           # ADVISORY; CLI/UserConfig override, use is printed
   defaults: {runtime: claude-code, model: gpt-5.4}
-  packs:                              # requirements.yml analog — pins
-    kubeops: {source: https://github.com/agenticdevops/aoh//collections/core/kubeops, version: main}
+  packs:
+    kubeops: {repo: https://github.com/agenticdevops/aoh, subdir: collections/core/kubeops, ref: main}
   groups:
-    prod: {vars: {namespace: platform}}       # group_vars analog
-    staging: {}
-  bindings: bindings/                 # dir of Binding yamls; each MAY add:
-                                      #   spec.groups: [prod]
-                                      #   spec.pack: kubeops   (which pinned pack)
-                                      #   spec.runtime: codex  (override default)
+    prod: {vars: {namespace: platform}}
+  bindingsDir: bindings/            # one level, deterministic order, unique names,
+                                    # filename must equal metadata.name, symlinks rejected
 ```
-Binding var precedence: binding.target > group vars > site defaults. Binding gains two
-OPTIONAL spec fields (`pack`, `groups`, `runtime`) — loader tolerates absence
-(standalone bindings keep working; site-less flow untouched).
+Binding optional spec fields (all three, defaulted): `pack`, `group` (single), `runtime`.
+Loader keeps standalone bindings working unchanged.
 
-### CLI
-- `aoh install --site <path|name> [--group g] [--binding name]` — fan-out: for each
-  selected binding, resolve pack pin → materialize via the runtime adapter into
-  `workspace_root/<binding-name>/`. Idempotent; prints per-workspace result + diagnostics.
-- `aoh list [--site …]` — table: binding, role, pack@version, runtime, cluster/ns,
-  access, workspace path, provisioned? (kubeconfig present).
-- Existing single-shot `aoh install --runtime … --binding …` unchanged.
+### Convergent materialization (the drift foundation, moved here from old Phase D)
+- Every install writes `aoh-manifest.json`: pack name, source {repo, subdir}, resolved
+  commit, per-skill tree hash + per-file hashes (incl. exec bit), canonical→materialized
+  artifact map + transform id, owned-file list, binding, adapter, runtime, timestamp.
+  Two hash sets: canonical-source hashes AND materialized-runtime hashes.
+- Install = stage to temp dir → atomic swap; removes stale owned files; refuses when
+  owned files were locally modified (`--discard-local` overrides, after backup).
+- `aoh install --site … [--group g] [--binding b]` fan-out; per-binding result +
+  diagnostics; workspace path = `<effectiveRoot>/<binding-name>/` (validated segment).
+- `aoh list [--site …]`: binding, role, pack@resolvedRef, runtime, cluster/ns, access,
+  path, provisioned?, drift-lite (manifest vs workspace quick check).
 
-## Phase B — Authoring loop: draft local, promote central
+## Phase B — Authoring: draft local, promote central
 
-- **Authoring skill** (new pack `collections/core/aoh-authoring`, installable to
-  user-global skills): teaches the session to (1) draft a skill into the local runtime
-  skills dir from "capture what we just did", agentskills-valid, with scripts/ +
-  templates/ as needed; (2) run validation; (3) run promote on request.
-- **`aoh skill promote <name> [--from <dir>] --pack <name> [--pr] [--sign-off]`**
-  - `--from` defaults to the runtime-local skills dir discovered upward from cwd
-    (`.claude/skills/`, `.agents/skills/`), explicit for odd layouts.
-  - Validates the skill standalone (frontmatter name/description, scripts executable).
-  - Resolves `--pack` via ~/.aoh config → cache clone → DEFAULT: commit to default
-    branch + push. `--pr`: branch `skill/<name>` + `gh pr create`.
-  - Commit message conventional: `feat(skill): add <name> (promoted from local draft)`.
-  - Idempotent re-promote = update (diff-aware; refuses silently identical).
-  - Never touches cwd. Prints the commit/PR URL.
-- Promote is the same machinery later reused by capture (Phase D) with a different
-  source (installed workspace instead of project dir).
+- Authoring skill pack `collections/core/aoh-authoring` (drafting guidance + validate +
+  promote invocation), installable user-globally.
+- `aoh skill promote <name> [--from dir] --pack <name> [--pr]`
+  - source discovery upward from cwd (`.claude/skills`, `.agents/skills`); validates
+    skill standalone; copy hygiene per Secrets decision (regular files only, size caps).
+  - git flow per Git-cache-discipline decision (bare mirror + lock + temp worktree +
+    FF-only + same-skill-conflict abort→`--pr`). Direct default; `--pr` = branch +
+    `gh pr create`.
+  - Full pack validation runs in the worktree BEFORE commit; staged diff printed.
+  - No-op re-promote exits 0 with existing sha.
 
-## Phase C — Registry: index + version pinning
+## Phase C — Registry + lock
 
-- New repo `agenticdevops/aoh-registry`, single `index.yaml`:
-```yaml
-apiVersion: openagentix.io/v1alpha2
-kind: Registry
-packs:
-  kubeops:
-    source: https://github.com/agenticdevops/aoh//collections/core/kubeops
-    description: Kubernetes triage and health skills
-    versions: [v0.2.0, main]          # git tags/branches; semver tags preferred
-```
-- `~/.aoh/config.yaml` gains `registries: [https://github.com/myorg/aoh-registry, https://github.com/agenticdevops/aoh-registry]` (ordered).
-- Resolution: explicit URL in site/config > first registry hit by name. `aoh search <term>`
-  greps registry descriptions. `aoh install kubeops@v0.2.0 --runtime …` works standalone.
-- Site pins gain registry names: `packs: {kubeops: {version: v0.2.0}}` (source optional
-  when resolvable via registry).
-- Publishing = PR to the registry repo (manual for now; `aoh pack publish` = later).
+- `aoh-registry` repo, `index.yaml`: kind Registry, packs → {source {repo, subdir},
+  description, versions: [{ref, commit}]}. Registry PR checklist verifies tag/commit
+  agreement + pack validation (manual process documented; tooling later).
+- UserConfig `registries:` named + ordered; site pins may name a registry; resolution:
+  explicit source > named registry; hard distinction between not-found and
+  unavailable/unauthorized (no public fallback on the latter); conflicts warned.
+- `site.lock.yaml` (committed): per pack — registry name, source, subdir, requested
+  ref, resolved commit, treeSha256. `aoh lock [--update]`. Installs/sync resolve via
+  lock; tag-moved-vs-lock = hard error.
+- `aoh install kubeops@v0.2.0 --runtime …` (standalone, lockless) still works.
 
 ## Phase D — Drift: status, sync, capture
 
-- Materialization writes `aoh-manifest.json` into every workspace: pack name+source,
-  resolved git sha, per-skill content hash (sha256 of file tree), binding name, adapter,
-  timestamp. (Extends the existing aoh-agent.json/aoh-provision.json family.)
-- `aoh status [--site …]` — three-way compare: pack repo (cache pull) vs manifest vs
-  workspace files → UP-TO-DATE / BEHIND (pack moved) / MODIFIED (workspace edited) /
-  BOTH (conflict).
-- `aoh sync [--site --group]` — re-materialize BEHIND workspaces; refuses MODIFIED
-  unless `--force` (or after capture).
-- `aoh capture <binding> [--skill name] [--pr]` — lift MODIFIED skill dirs from a
-  workspace back to the pack repo (promote machinery, workspace source). The incident
-  loop: agent improves skill mid-incident → capture → (review) → merge → `sync --group`
-  fans the improvement to the fleet.
+- Five-state compare per skill (B=installed base from manifest, D=desired at locked
+  ref, W=canonicalized workspace content): CURRENT (W=B=D) / BEHIND (W=B≠D) /
+  MODIFIED (W≠B=D) / CONVERGED (W=D≠B → refresh manifest) / DIVERGED (all differ →
+  file-level three-way merge attempt, else conflict). Content hashes decide — a moved
+  repo sha alone with unchanged skill subtree ≠ BEHIND.
+- `aoh status [--site]` per-workspace, per-skill table.
+- `aoh sync [--site --group]`: auto-updates only clean BEHIND; DIVERGED/MODIFIED need
+  `--discard-local` (backup first, confirm) or capture-then-sync.
+- `aoh capture <binding> [--skill name] [--pr]`: inverse-transform via manifest map,
+  validate canonical pack in worktree, then promote machinery. Capture with a
+  tag-locked pack targets the repo's default/contribution branch (never mutates tags).
+  Runtime-generated files never captured.
 
-## Phase E — Fleet console
+## Phase E — Fleet console (claude-code, scoped-only)
 
-- `aoh console --site … [--group g] --runtime claude-code --output <dir>` generates ONE
-  control-node workspace:
-  - per-binding scoped kubeconfig materialization (provision-all.sh runs each binding's
-    provisioning; kubeconfigs/<binding>.yaml)
-  - `.claude/agents/<binding>.md` — subagent per binding, instructions pin its
-    kubeconfig path + read-only contract (codex runtime: skill per binding instead)
-  - fleet skill: name→identity map, "operate <binding>" semantics
-  - generalized kubectl-guard hook: read verbs only AND `--kubeconfig` value must be
-    one of the fleet identity paths (deny otherwise, fail closed)
-  - CLAUDE.md/AGENTS.md = rendered inventory (the site, humanized)
-- Honest threat language carries over: per-identity RBAC boundaries; console session
-  mixes identities → per-binding audit trails still distinct; inherit-mode bindings
-  flagged loudly in the console inventory.
+- `aoh console --site … [--group g] --output <dir>`: generates (never executes):
+  - `provision-all.sh` — plan-style: lists targets, per-target confirm (or `--yes`),
+    continues/stops policy explicit; runs each binding's provisioning
+  - `kubeconfigs/<binding>.yaml` slots (0600; console root 0700), expiry surfaced from
+    aoh-provision.json (+ refresh = re-run provisioning)
+  - `.claude/agents/<binding>.md` — concise subagent per binding pinning its
+    kubeconfig path; honest note: instructions do NOT enforce credential selection
+  - fleet skill (name→identity map) + generalized fail-closed kubectl-guard: read verbs
+    AND `--kubeconfig` value ∈ fleet identity paths
+  - CLAUDE.md = rendered inventory
+- `access: inherit` bindings are REJECTED for console inclusion (clear error).
+- Threat language: per-identity RBAC boundaries; audit distinguishes credentials, not
+  subagent intent; console = credential concentration point — root perms + expiry
+  surfaced; guardrail ≠ boundary, as always.
+- SA/ClusterRoleBinding names become site-qualified (`aoh-<site>-<binding>`) to avoid
+  cross-site collisions (provisioning change, Phase A or E — decide at plan time).
 
 ## Cross-cutting
 
-- Docs per phase: docs-site tutorial/reference updates + a field note each; ansible
-  analogy table extended as features land (inventory → site.yaml, galaxy → registry…).
-- Tests: TDD per phase; site/registry loaders in pack.py stay engine-neutral; git
-  operations isolated in a `src/aoh/gitops.py` (mockable; tests use local bare repos,
-  never the network).
-- Security: promote/capture/publish never handle secrets; registry sources are https/ssh
-  git only; `gh` used for PR paths; clone cache is per-user (0700).
-- Out of scope v0.3: eval runner (v0.4), hosted registry service, pack dependency
-  resolution (index lists packs; packs don't require packs yet), Goose adapter,
-  multi-user site locking.
+- Docs per phase (site tutorials/reference + field note each; ansible table grows).
+- Tests TDD; loaders engine-neutral in pack.py (or a new `site.py`); ALL git ops in
+  `src/aoh/gitops.py`, tested against local bare repos only.
+- Out of scope v0.3: eval runner, hosted registry, `aoh search`/public discovery,
+  pack deps, Goose, Codex/inherit console, multi-group bindings, multi-user locking.
 
-## Open questions for review
+## Open questions (v2)
 
-- site.yaml: bindings as dir-of-yamls (chosen) vs inline list — right call at 20+?
-- Version pinning on `main` allowed (chosen: yes, with sync semantics = follow branch)?
-- Console at 20 subagents: context-size impact of 20 agent defs in one workspace?
-- Manifest hash granularity: per-skill tree hash enough, or per-file?
+- site-qualified SA names: rollout implication — re-provision renames identities;
+  do it in Phase A (before fleets exist) or Phase E?
+- `aoh list` drift-lite in Phase A vs full status only in D — keep or drop the lite?
+
+## Review adjudication (codex gpt-5.6-sol round 1: REWORK, 12 findings)
+
+Accepted in full: F1 (workspace-root ownership + path containment), F2 (transform map +
+inverse-transform capture), F3 (five-state drift + --discard-local + tag-capture
+branch rule), F4 (manifest/convergence moved into Phase A — matches our own 2026-07-14
+drift-first decision), F5 (bare-mirror cache + locks + temp worktrees + FF-only),
+F6 (lockfile + {ref, commit} versions), F7 (named registries, no fallback on auth
+failure), F9 (console hardening: 0700/0600, expiry, plan-style provision-all,
+generate-never-execute), F10 (three fields, split precedence, one group, camelCase,
+lazy UserConfig), F11 (structured source), F12 (secrets language + copy hygiene).
+Accepted-adapted: F8 + cut recommendation — console NOT cut (explicit user
+requirement: in-session fleet operation) but reduced to claude-code scoped-only and
+sequenced last; Codex console deferred to v0.4 pending `.codex/agents/*.toml`
+evaluation. Registry search/public discovery cut from v0.3 per recommendation;
+minimal named-registry + lock retained (C).
+Open questions from v1: answered per review (bindings dir yes with constraints;
+`main` = tracking ref resolved into lock; console context manageable but identity
+risks are the real issue — addressed; hashes = per-skill tree + per-file + dual
+canonical/materialized sets).
