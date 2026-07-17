@@ -25,6 +25,8 @@ class AdapterResult:
     output_dir: Path
     generated_files: list[Path]
     diagnostics: list[str] = field(default_factory=list)
+    artifact_map: dict[str, str] = field(default_factory=dict)
+    transform_id: str = "identity-v1"
 
 
 class RuntimeAdapter(Protocol):

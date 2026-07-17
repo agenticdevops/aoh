@@ -96,9 +96,20 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "install":
             validate_pack(pack)
             binding = load_binding(args.binding) if args.binding else None
+            output_dir = args.output
+            if args.runtime == "hermes":
+                # The adapter contract is exact-dir (materialize writes into
+                # EXACTLY request.output_dir — v0.3 A3 / F9). The Hermes CLI
+                # path historically nested output under
+                # `<output>/<profile>/`; that printed/observed layout is
+                # preserved here, in the CLI handler, by computing the final
+                # directory BEFORE calling materialize — the adapter itself
+                # no longer knows about this nesting.
+                profile_name = args.profile or (binding.name if binding else pack.name)
+                output_dir = args.output / profile_name
             req = MaterializeRequest(
                 pack=pack,
-                output_dir=args.output,
+                output_dir=output_dir,
                 role_name=args.role,
                 binding=binding,
                 profile=args.profile,

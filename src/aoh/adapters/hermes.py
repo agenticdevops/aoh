@@ -421,29 +421,82 @@ def _render_launch_script(
 
 
 class HermesAdapter:
-    """RuntimeAdapter conformance wrapper around the existing Hermes install path."""
+    """RuntimeAdapter conformance wrapper around the existing Hermes install path.
+
+    The `RuntimeAdapter` contract (base.py) requires `materialize` to write
+    into EXACTLY `request.output_dir` — no extra nesting level. The legacy
+    `install_hermes_agent` function nests output under
+    `<profiles_dir>/<profile_name>/` and its signature/behavior must stay
+    untouched (legacy CLI paths depend on it). This wrapper reconciles the
+    two by passing `profiles_dir=request.output_dir.parent` and
+    `profile_name=request.output_dir.name`, so the legacy function's nesting
+    lands exactly back on `request.output_dir`.
+    """
 
     name = "hermes"
 
     def materialize(self, request: MaterializeRequest) -> AdapterResult:
         pack = request.pack
-        profile_name = request.profile or (
-            request.binding.name if request.binding else pack.name
-        )
         provider = request.options.get("provider", "openai-codex")
         model = request.model_hint or "gpt-5.4"
         cwd = request.workdir or str(Path.cwd())
+        output_dir = Path(request.output_dir)
 
-        return install_hermes_agent(
+        result = install_hermes_agent(
             pack,
-            request.output_dir,
-            profile_name=profile_name,
+            output_dir.parent,
+            profile_name=output_dir.name,
             provider=provider,
             model=model,
             cwd=cwd,
             role_name=request.role_name,
             binding=request.binding,
         )
+
+        generated_files = sorted(p for p in output_dir.rglob("*") if p.is_file())
+        artifact_map = _hermes_artifact_map(pack, request, output_dir)
+
+        return AdapterResult(
+            runtime="hermes",
+            output_dir=output_dir,
+            generated_files=generated_files,
+            diagnostics=result.diagnostics,
+            artifact_map=artifact_map,
+        )
+
+
+def _hermes_artifact_map(
+    pack: Pack, request: MaterializeRequest, output_dir: Path
+) -> dict[str, str]:
+    """Map canonical pack-relative skill files -> their materialized path.
+
+    Hermes lays installed skills out at `skills/aoh/<skill>/...` under the
+    profile dir (see `install_hermes_pack`). Only files that physically
+    originated in the pack's `skills/<skill>/` tree are included — the
+    synthetic `references/aoh-pack.md` reference file `install_hermes_pack`
+    generates per skill is NOT pack-sourced and is excluded.
+    """
+
+    role = load_role(pack, request.role_name) if request.role_name else None
+    if role is None and request.binding is not None:
+        role = load_role(pack, request.binding.role)
+    selected_skills = role.skills if role and role.skills else pack.skills
+
+    artifact_map: dict[str, str] = {}
+    for skill in selected_skills:
+        source_dir = pack.root / "skills" / skill
+        if not source_dir.is_dir():
+            continue
+        for source_path in sorted(source_dir.rglob("*")):
+            if not source_path.is_file():
+                continue
+            rel = source_path.relative_to(source_dir).as_posix()
+            canonical = f"skills/{skill}/{rel}"
+            materialized = f"skills/aoh/{skill}/{rel}"
+            if (output_dir / materialized).is_file():
+                artifact_map[canonical] = materialized
+
+    return artifact_map
 
 
 ADAPTERS["hermes"] = HermesAdapter()

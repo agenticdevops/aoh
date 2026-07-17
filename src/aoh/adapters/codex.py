@@ -265,6 +265,7 @@ class CodexAdapter:
         selected_skills = role.skills if role and role.skills else pack.skills
 
         generated: list[Path] = []
+        artifact_map: dict[str, str] = {}
 
         for skill in selected_skills:
             source = pack.root / "skills" / skill
@@ -275,6 +276,14 @@ class CodexAdapter:
             skill_md = destination / "SKILL.md"
             _rewrite_skill_frontmatter_name(skill_md, wrapped_name=wrapped_name)
             generated.append(skill_md)
+
+            for source_path in sorted(source.rglob("*")):
+                if not source_path.is_file():
+                    continue
+                rel = source_path.relative_to(source).as_posix()
+                artifact_map[f"skills/{skill}/{rel}"] = (
+                    f".agents/skills/{wrapped_name}/{rel}"
+                )
 
         inherit = binding is not None and binding.access == "inherit"
 
@@ -319,11 +328,15 @@ class CodexAdapter:
                 os.chmod(provision_file, 0o755)
                 generated.append(provision_file)
 
+        generated_files = sorted(p for p in workspace.rglob("*") if p.is_file())
+
         return AdapterResult(
             runtime="codex",
             output_dir=workspace,
-            generated_files=generated,
+            generated_files=generated_files,
             diagnostics=diagnostics,
+            artifact_map=artifact_map,
+            transform_id="codex-ops-rename-v1",
         )
 
 

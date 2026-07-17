@@ -532,12 +532,17 @@ class ClaudeCodeAdapter:
         selected_skills = role.skills if role and role.skills else pack.skills
 
         generated: list[Path] = []
+        artifact_map: dict[str, str] = {}
 
         for skill in selected_skills:
             source = pack.root / "skills" / skill
             destination = skills_dir / skill
             copytree(source, destination, dirs_exist_ok=True)
-            generated.append(destination / "SKILL.md")
+            for source_path in sorted(source.rglob("*")):
+                if not source_path.is_file():
+                    continue
+                rel = source_path.relative_to(source).as_posix()
+                artifact_map[f"skills/{skill}/{rel}"] = f".claude/skills/{skill}/{rel}"
 
             command_file = commands_dir / f"{skill}.md"
             command_file.write_text(_render_command(pack, skill), encoding="utf-8")
@@ -601,11 +606,14 @@ class ClaudeCodeAdapter:
                 os.chmod(provision_file, 0o755)
                 generated.append(provision_file)
 
+        generated_files = sorted(p for p in workspace.rglob("*") if p.is_file())
+
         return AdapterResult(
             runtime="claude-code",
             output_dir=workspace,
-            generated_files=generated,
+            generated_files=generated_files,
             diagnostics=diagnostics,
+            artifact_map=artifact_map,
         )
 
 

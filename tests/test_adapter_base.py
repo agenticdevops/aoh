@@ -48,10 +48,16 @@ def test_hermes_adapter_materialize_matches_install_hermes_agent(tmp_path: Path)
     pack = load_pack(PROJECT_ROOT / "collections/core/kubeops")
     binding = load_binding(write_binding(tmp_path / "binding.yaml"))
 
+    # materialize() is exact-dir: it writes into EXACTLY request.output_dir,
+    # no extra `<output_dir>/<profile>/` nesting (v0.3 A3 / F9). The legacy
+    # `install_hermes_agent` function retains its own nesting behavior
+    # unchanged — see test_legacy_install_hermes_agent_still_nests_profile_dir
+    # in test_adapter_contract.py.
     adapter = HermesAdapter()
+    profile = tmp_path / "profiles" / "kubeops-sresquad"
     request = MaterializeRequest(
         pack=pack,
-        output_dir=tmp_path / "profiles",
+        output_dir=profile,
         binding=binding,
         profile="kubeops-sresquad",
         options={"provider": "openai-codex"},
@@ -63,8 +69,8 @@ def test_hermes_adapter_materialize_matches_install_hermes_agent(tmp_path: Path)
     assert isinstance(result, AdapterResult)
     assert result.runtime == "hermes"
     assert result.diagnostics == []
+    assert result.output_dir == profile
 
-    profile = tmp_path / "profiles" / "kubeops-sresquad"
     assert (profile / "config.yaml").exists()
     assert (profile / "SOUL.md").exists()
     assert (profile / "launch.sh").exists()
