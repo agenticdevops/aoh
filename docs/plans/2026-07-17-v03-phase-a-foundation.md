@@ -194,3 +194,30 @@ As v1 Task 7 PLUS: docs cover `aoh lock` + the lock-required install flow; `docs
 ## Plan-review adjudication (codex, REWORK → v2)
 
 Accepted all 14: F1 minimal lock moved into Phase A (Task 6) with the moved-branch test; F2 all install paths routed through installer (Task 4, v1-legacy scheme); F3 full journal protocol w/ txn phases + always-backup + atomic manifest (Task 4); F4 tri-state workspace_root (Task 1/6); F5 complete artifact inventory via output walk (Task 3); F6 preflight ls-tree + private-tmp atomic export + completion marker + format-versioned key (Task 2); F7 target_defaults/defaults split + user default_model (Task 1); F8 paths.safe_join + adversarial matrix incl. manifest paths (Tasks 1/2/4); F9 adapter exact-output-dir contract + hermes wrapper (Task 3); F10 CLI mode exclusivity + dispatch order + per-binding error isolation (Task 6); F11 fcntl discipline + cross-process tests (Tasks 2/4); F12 full-name DNS validation + both RBAC objects + boundary tests (Task 5); F13 camelCase/apiVersion assertions + AOH_HOME everywhere + list --site optional (Tasks 1/6); F14 live smoke optional (Task 7).
+
+## Round-2 amendments (BINDING — override any conflicting text above)
+
+1. **Lock semantics (F1 residual):** `aoh lock` INITIALIZES only — writes entries that do
+   not yet exist; it NEVER changes an existing resolvedCommit or source. `aoh lock
+   --update [<pack>]` is the only mover: prints old→new commit; a SOURCE (repo/subdir)
+   or requestedRef change additionally requires `--yes` or interactive confirmation.
+   Local-path sources ARE recorded in the lock (`{local: true, path: …}`) so the
+   lock-presence and site/lock-agreement checks are uniform; they are exempt only from
+   commit resolution.
+2. **Journal (F3 residual):** the journal written at phase=staged embeds the COMPLETE
+   new manifest document (`newManifest`) — roll-forward re-copies per newOwned then
+   writes exactly that manifest; no recomputation during recovery. stagingDir/backupDir
+   are stored as WORKSPACE-RELATIVE names (`.aoh-stage-<txnId>`, `.aoh-backup-<txnId>`)
+   and re-validated via safe_join on recovery — no absolute paths trusted from the
+   journal. Recovery NEVER writes into an existing backup dir: if backupDir already has
+   content, roll-forward proceeds without further backups (originals already preserved).
+3. **Hermes legacy normalization (F9 residual):** `materialize` is exact-dir for ALL
+   adapters. The `<output>/<profile>/` nesting behavior of legacy commands is preserved
+   by computing `final_dir = output/<profile>` INSIDE the legacy CLI handlers (and the
+   legacy `install_hermes_agent` function keeps its current signature/behavior
+   untouched). Existing tests must pass unmodified except where they call the NEW
+   materialize path directly.
+4. **Local-source symlink escape (F8 residual):** `source_checkout` for local sources
+   validates the pack tree with the same rule as git export — any symlink inside the
+   tree ⇒ error (PackError/GitOpsError). Test: skill dir symlinked to an outside path
+   ⇒ install refused, nothing materialized.
