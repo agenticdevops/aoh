@@ -371,6 +371,20 @@ def test_load_site_binding_filename_stem_must_equal_metadata_name(tmp_path: Path
         load_site(tmp_path)
 
 
+def test_load_site_rejects_dotdot_binding_name(tmp_path: Path) -> None:
+    # A binding file named `...yaml` has filename stem `..` (Path("...yaml").stem
+    # == ".."), which passes the stem==metadata.name check trivially since both
+    # are `..`. Without validating metadata.name as a safe path segment, this
+    # name later gets joined raw (`workspace_root / binding.name`) at the CLI
+    # fan-out boundary and escapes the workspace root. Must be rejected here,
+    # at load, before any path join happens.
+    write_site_yaml(tmp_path, _minimal_site_spec())
+    write_binding_file(tmp_path / "bindings" / "...yaml", "..", pack="kubeops")
+
+    with pytest.raises(PackError):
+        load_site(tmp_path)
+
+
 def test_load_site_rejects_symlinked_binding_file(tmp_path: Path) -> None:
     write_site_yaml(tmp_path, _minimal_site_spec())
     real = tmp_path / "elsewhere.yaml"

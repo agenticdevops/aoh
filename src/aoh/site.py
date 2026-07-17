@@ -247,6 +247,8 @@ def _load_bindings_dir(
 
         binding = load_binding(path)
 
+        safe_segment("binding", binding.name)
+
         if path.stem != binding.name:
             raise PackError(
                 f"{path} filename stem `{path.stem}` must equal metadata.name `{binding.name}`"

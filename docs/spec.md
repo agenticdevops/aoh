@@ -61,7 +61,7 @@ Kinds below.
   site defines more than one pack; error if ambiguous), `group` (single group name,
   merges `SiteGroup.vars` under `spec.target` at a lower precedence than the
   binding's own `target`), `runtime` (overrides `Site.defaults.runtime` and
-  `UserConfig.default_runtime` for this one binding). When installed via
+  `UserConfig.defaults.runtime` for this one binding). When installed via
   `aoh install --site` the rendered ServiceAccount/ClusterRoleBinding names become
   site-qualified — see `UserConfig` / `Site` / `SiteLock` below.
 

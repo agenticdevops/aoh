@@ -24,6 +24,7 @@ from aoh.gitops import GitOpsError, ensure_mirror, resolve_commit, source_checko
 from aoh.installer import InstallRefused, install_workspace
 from aoh.manifest import NAMING_SCHEME_LEGACY, NAMING_SCHEME_SITE_QUALIFIED, read_manifest
 from aoh.pack import PackError, load_binding, load_pack, validate_pack
+from aoh.paths import safe_join
 from aoh.site import (
     LockedPack,
     PackSource,
@@ -313,7 +314,7 @@ def _cmd_install_site(args: argparse.Namespace) -> int:
             # synthetic Binding carrying the fully-resolved target.
             merged_binding = dataclasses.replace(binding, target=resolved.target)
 
-            workspace = workspace_root / binding.name
+            workspace = safe_join(workspace_root, binding.name)
             req = MaterializeRequest(
                 pack=pack,
                 output_dir=workspace,
@@ -411,7 +412,10 @@ def _cmd_list(args: argparse.Namespace) -> int:
             pack_ref = "?"
             resolved = None
 
-        workspace = workspace_root / binding.name
+        try:
+            workspace = safe_join(workspace_root, binding.name)
+        except PackError:
+            workspace = workspace_root / "?"
         manifest = read_manifest(workspace) if workspace.exists() else None
         context_ns = f"{binding.target.get('kubeContext', '-')}/{binding.target.get('namespace', '-')}"
         rows.append(

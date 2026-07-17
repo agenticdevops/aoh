@@ -23,7 +23,8 @@ import pytest
 
 from aoh.cli import main
 from aoh.manifest import read_manifest
-from aoh.site import load_site_lock
+from aoh.pack import Binding
+from aoh.site import Site, load_site_lock
 
 KUBEOPS_PACK = PROJECT_ROOT / "collections/core/kubeops"
 
@@ -639,6 +640,50 @@ def test_list_shows_provisioned_and_credential_columns(
     captured = capsys.readouterr()
     # Not provisioned yet (no kubeconfig/kubeconfig-overlay) => credential "-"
     assert "alpha" in captured.out
+
+
+def test_list_never_resolves_workspace_path_outside_root_for_unsafe_binding_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    # Belt-and-suspenders: `load_site` now rejects `binding.name == ".."` at load
+    # (see tests/test_site.py::test_load_site_rejects_dotdot_binding_name), so this
+    # path can no longer be reached through real site.yaml + bindingsDir files.
+    # But `_cmd_list` joins `workspace_root / binding.name` on whatever `Site` object
+    # `load_site` returns — if a `Site` were ever hand-constructed or otherwise
+    # produced with an unvalidated binding name (bypassing `load_site`'s file-based
+    # loader), the join must still refuse to escape `workspace_root`, not silently
+    # resolve a WORKSPACE path above it (raw `Path.__truediv__` happily resolves
+    # `agents/..` to the parent of `agents/`).
+    site_root = tmp_path / "site"
+    site_root.mkdir(parents=True, exist_ok=True)
+    malicious_site = Site(
+        root=site_root,
+        name="myorg-ops-site",
+        workspace_root_advisory=None,
+        defaults={},
+        target_defaults={},
+        packs={},
+        groups={},
+        bindings=[
+            Binding(name="..", role="kubeops-copilot", target={"kubeContext": "kind-demo"})
+        ],
+    )
+    monkeypatch.setattr("aoh.cli.load_site", lambda _site_arg: malicious_site)
+
+    workspace_root = tmp_path / "agents"
+    workspace_root.mkdir(parents=True, exist_ok=True)
+
+    main(["list", "--site", str(site_root), "--workspace-root", str(workspace_root)])
+
+    captured = capsys.readouterr()
+    # The raw-join bug prints the resolved parent of workspace_root (tmp_path
+    # itself) in the WORKSPACE column — i.e. the string form of `workspace_root`
+    # with a trailing `/..` component collapsed out by str-printing of the Path.
+    # Assert the escaped, resolved ancestor path never appears in stdout.
+    escaped_path = str((workspace_root / "..").resolve())
+    assert escaped_path not in captured.out, (
+        f"WORKSPACE column leaked a path outside workspace_root: {captured.out!r}"
+    )
 
 
 # ---------------------------------------------------------------------------
