@@ -1,7 +1,7 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.2
-milestone_name: — Simplify + Solidify
+milestone: v0.3
+milestone_name: — Fleet Lifecycle
 status: unknown
 last_updated: "2026-07-17T08:21:39.623Z"
 ---
@@ -13,27 +13,77 @@ last_updated: "2026-07-17T08:21:39.623Z"
 
 ## Position
 
-- Milestone: v0.2 (Simplify + Solidify)
-- Current phase: 3 (Adapter interface) + 5 (Claude Code adapter) — ✅ done, Codex
-  adapter shipped alongside phase 5, ahead of schedule
+- Milestone: v0.3 (Fleet Lifecycle)
+- Current phase: A (Foundation) — ✅ done
+- Next action: phase B (Authoring/promote) — `collections/core/aoh-authoring` skill
+  pack; `aoh skill promote` (bare-mirror + lock + temp worktree + FF-only git flow,
+  direct-commit default / `--pr` opt-in)
 
-- Next action: phase 4 (Drift model) — manifest w/ source ref + content hashes;
-  `aoh status` / `sync` / `capture`; `--link` dev mode
-
-- Docs site LIVE at https://agenticdevops.github.io/aoh/ (Pages deploy green
-  2026-07-16; auto-redeploys on push touching docs-site/**). Adapter work + codex
-  tutorial pushed 2026-07-16 (16 commits, through 10229e0)
+- v0.2 CLOSED 2026-07-17 (see ROADMAP.md). Docs site LIVE at
+  https://agenticdevops.github.io/aoh/ (Pages deploy green 2026-07-16;
+  auto-redeploys on push touching docs-site/**).
 
 ## Repo facts
 
 - Remote: https://github.com/agenticdevops/aoh.git (main tracks origin/main)
 - Nested repo inside `experiments/` parent tree (parent gitignores `aoh/`)
-- Test command: `rtk proxy uv run pytest -q` — 114 passing (v0.2 phases 3+5: adapter
-  protocol + Claude Code + Codex adapters)
+- Test command: `rtk proxy uv run pytest -q` — 307 passing (v0.3 phase A: site
+  inventory, gitops mirror cache, manifest + crash-safe convergent installer,
+  site-qualified RBAC naming, `aoh install --site` fan-out + `list`/`config`/`lock`)
 
 - Validate: `uv run aoh validate <pack>`
 
 ## Session log
+
+### 2026-07-17 — v0.3 phase A shipped: fleet inventory, lock, convergent installs (SDD)
+
+- Executed via SDD (spec-driven development): 7 implementation tasks + this docs
+  task, commits `9750a3c`→`3e657df` — `feat: paths + site inventory` (A1),
+  `feat: gitops — mirror cache, preflighted safe export` (A2), `feat: adapter
+  contract — exact output dir + complete artifact inventory` (A3), `feat: manifest +
+  crash-safe convergent installer wired into all installs` (A4), `feat:
+  site-qualified RBAC identity naming` (A5), `feat: site lock + fan-out install,
+  list, config, lock CLI` (A6), `test: site fan-out e2e — locked git-sourced
+  packs` (A7)
+
+- New modules: `src/aoh/paths.py` (`safe_segment`/`safe_join`, containment-checked
+  path joins), `src/aoh/site.py` (`UserConfig`, `Site`, `SiteGroup`, `PackSource`,
+  `SiteLock`/`LockedPack`, `resolve_binding_settings` precedence), `src/aoh/gitops.py`
+  (bare-mirror cache keyed by URL hash, fcntl-locked, preflighted symlink/submodule-
+  safe `export_tree`, format-versioned export cache), `src/aoh/manifest.py`
+  (`aoh-manifest.json` build/read/write, atomic tmp+rename, path-validated on read),
+  `src/aoh/installer.py` (`install_workspace` — write-ahead journal, staged→committing
+  phases, crash recovery, per-file backup-before-overwrite, fcntl install lock)
+
+- Cross-AI design + plan review (external reviewer: codex gpt-5.6-sol) — design 2
+  rounds (v1 REWORK/12 findings → v2 APPROVE-WITH-CHANGES, final amendments binding);
+  plan 1 round (REWORK/14 findings, all adjudicated → v2 APPROVE)
+
+- F1 supply-chain lock proof (live, in `tests/test_site_e2e.py`): a git-sourced
+  `kubeops` pack served from a local bare repo, locked via `aoh lock`; pushing a new
+  commit upstream and re-running `aoh install --site` (no `--update`) still installs
+  the OLD locked commit — the movable `main` ref changing upstream does not affect an
+  unlocked re-install. `aoh lock --update` then moves the pin; re-install picks up
+  the new commit, and a further commit removing a file converges both workspaces
+  (stale owned file removed, not just new files added) — proves the lock is the real
+  install authority, not `site.yaml`'s ref.
+
+- Site-qualified RBAC naming shipped in phase A (not deferred to E per the design's
+  open question): `aoh-<site>-<binding>` when installed via a site fan-out,
+  `aoh-<binding>` legacy naming preserved for standalone bindings; manifest records
+  `namingScheme` (`v2-site-qualified` | `v1-legacy`).
+
+- Docs: this task — ROADMAP v0.2 closed / v0.3 phase table, PROJECT.md decision rows,
+  CHANGELOG [Unreleased], `docs/spec.md` UserConfig/Site/SiteLock summaries, new
+  `docs/installs.md` (crash-safe convergent install model), docs-site
+  `docs/reference/site.md` (new) + `docs/reference/cli.md` (install --site/list/
+  config/lock) + `docs/tutorials/bindings-inventory.mdx` (real site.yaml walkthrough
+  replacing the old hypothetical framing), field note
+  `blog/2026-07-17-fleet-inventory.md`
+
+- Final suite: 307 passing; all 3 packs validate; docs-site build exit 0
+
+## Session log (v0.2)
 
 ### 2026-07-16 — Claude Code + Codex adapters shipped (phases 3+5, SDD)
 

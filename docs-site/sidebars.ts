@@ -33,7 +33,13 @@ const sidebars: SidebarsConfig = {
     {
       type: 'category',
       label: 'Reference',
-      items: ['reference/pack-spec', 'reference/cli', 'reference/artifact-kinds', 'reference/adapters'],
+      items: [
+        'reference/pack-spec',
+        'reference/cli',
+        'reference/artifact-kinds',
+        'reference/adapters',
+        'reference/site',
+      ],
     },
   ],
 };

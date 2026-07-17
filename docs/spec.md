@@ -55,6 +55,70 @@ Kinds below.
     `KUBECONFIG=<overlay>:<original>`. There is NO hard enforcement boundary in this
     mode — whatever the operator's credentials can do, the agent can do.
 
+  Optional `spec` fields (v0.3, all defaulted, all consumed when a `Binding` is
+  loaded as part of a `Site`'s `bindingsDir`; ignored when a binding is loaded and
+  used standalone): `pack` (which site pack this binding installs — required if the
+  site defines more than one pack; error if ambiguous), `group` (single group name,
+  merges `SiteGroup.vars` under `spec.target` at a lower precedence than the
+  binding's own `target`), `runtime` (overrides `Site.defaults.runtime` and
+  `UserConfig.default_runtime` for this one binding). When installed via
+  `aoh install --site` the rendered ServiceAccount/ClusterRoleBinding names become
+  site-qualified — see `UserConfig` / `Site` / `SiteLock` below.
+
+- `UserConfig`: the operator's own machine-local defaults, `~/.aoh/config.yaml`
+  (or `$AOH_HOME/config.yaml`), loaded lazily — every command that doesn't need it
+  works fine with no config file present at all. `apiVersion:
+  openagentix.io/v1alpha2`, `kind: UserConfig`. Fields: `packs:` (named pack
+  sources, `{repo, subdir, ref}` structured or a bare local-path string), `site:`
+  (a default site path/URL, used by `aoh list` when `--site` is omitted),
+  `registries:` (named registry URLs — placeholder for the v0.3 phase C registry
+  work), `defaults.runtime` (falls back to `"claude-code"`), `defaults.model`,
+  `defaults.workspaceRoot` (tri-state: absent means "the user has not set an
+  opinion," distinct from an explicit value — this matters for the workspace-root
+  consent chain below).
+
+- `Site`: a fleet's shared, versioned inventory — `site.yaml` at the root of a
+  separate site repo, alongside a `bindingsDir` of individual `Binding` files (one
+  level deep, sorted, each filename stem required to equal its `metadata.name`,
+  symlinked files/dir rejected, duplicate names rejected). `apiVersion:
+  openagentix.io/v1alpha2`, `kind: Site`, `metadata.name` required. `spec` fields:
+  `workspaceRoot` (ADVISORY ONLY — see the precedence rule below), `defaults`
+  (`runtime`/`model`), `targetDefaults` (a separate map merged under
+  `spec.target`, lowest precedence — kept apart from `defaults` because they are
+  different concerns: runtime/model selection vs. target variables), `packs`
+  (named `PackSource`s), `groups` (named, each with a `vars` map), `bindingsDir`.
+
+  Precedence (three separate chains, not one blended one):
+  - target vars: `Site.targetDefaults` < `SiteGroup.vars` < `Binding.spec.target`
+  - runtime: CLI flag > `Binding.spec.runtime` > `Site.defaults.runtime` >
+    `UserConfig.defaults.runtime`
+  - model: `Site.defaults.model` > `UserConfig.defaults.model`
+  - pack: `Binding.spec.pack` > the site's sole pack (if exactly one is defined) >
+    error if the site defines multiple packs and the binding doesn't pick one
+
+  Workspace-root consent (tri-state, deliberately not a single fallback chain):
+  effective root = `--workspace-root` CLI flag > `UserConfig.defaults.workspaceRoot`
+  (only when explicitly set — the tri-state None case falls through) >
+  `Site.workspaceRoot` advisory (used ONLY when `--accept-site-root` is also passed)
+  > `~/agents` default. Whichever source wins, the CLI prints a notice. A site repo
+  (which may be someone else's, pulled over git) must never silently redirect
+  filesystem writes on the operator's own machine.
+
+- `SiteLock`: the supply-chain pin, `site.lock.yaml` committed next to `site.yaml`.
+  `apiVersion: openagentix.io/v1alpha2`, `kind: SiteLock`. `packs:` maps each site
+  pack name to `{repo, subdir, requestedRef, resolvedCommit}` (git sources) or
+  `{local: true, path}` (local sources, exempt from commit resolution but still
+  recorded so lock-presence checks are uniform). `aoh lock` only writes entries
+  that don't yet exist; it never moves an existing `resolvedCommit` or changes an
+  existing source. `aoh lock --update [<pack>]` is the only mover — a source or
+  `requestedRef` change additionally requires `--yes` (or interactive
+  confirmation). A fan-out install (`aoh install --site`) fails if the lock is
+  missing, or if `site.yaml` and `site.lock.yaml` disagree on a pack's
+  source/subdir/ref — installs always resolve through the LOCK's `resolvedCommit`,
+  never by re-resolving `site.yaml`'s (possibly movable) `ref` directly. See
+  `docs/installs.md` for how a resolved commit turns into a materialized,
+  crash-safe workspace.
+
 ## Commands
 
 Adapters generate one invokable command per skill, namespaced under the `ops` prefix.
@@ -80,6 +144,15 @@ Materialize any of these surfaces with the runtime-neutral CLI entrypoint:
 single call into `ADAPTERS[<runtime>].materialize(...)`; the older `install-hermes*`
 subcommands remain as unchanged compat handlers, with `install-hermes-agent` printing
 a stderr hint pointing at `aoh install --runtime hermes`.
+
+For a whole fleet of bindings at once (v0.3), `aoh install --site <dir>
+[--group <g>] [--binding <name>] [--workspace-root <dir>] [--accept-site-root]
+[--discard-local]` fans out across a `Site`'s `bindingsDir`, one workspace per
+binding under `<effectiveRoot>/<binding-name>/`, resolving pack sources through
+`site.lock.yaml`. `aoh list [--site <dir>]`, `aoh config init|get|set`, and
+`aoh lock [--site <dir>] [--update [<pack>]] [--yes]` round out the fleet surface —
+see `docs/reference/cli.md` (docs-site) for full flag tables and `docs/installs.md`
+for the crash-safe convergent install model every one of these paths shares.
 
 ## Org/Project Role Model
 

@@ -218,7 +218,15 @@ Current commands:
 - `init-pack`: create a starter pack
 - `install --runtime <hermes|claude-code|codex>`: materialize a pack as a
   self-contained workspace for the given runtime (`--output` required; optional
-  `--binding`, `--role`, `--profile`, `--model`)
+  `--binding`, `--role`, `--profile`, `--model`, `--discard-local`)
+- `install --site <dir>`: fan out an install across every binding in a site's
+  inventory (optional `--group`, `--binding <name>`, `--workspace-root`,
+  `--accept-site-root`, `--discard-local`); requires `aoh lock` first
+- `list [--site <dir>]`: fleet table — binding, role, pack@ref, runtime,
+  context/namespace, access, workspace path, provisioned/credential state
+- `config init|get|set`: manage the user config (`~/.aoh/config.yaml`)
+- `lock [--site <dir>] [--update [<pack>]] [--yes]`: resolve site pack refs to
+  commits and write/update `site.lock.yaml`
 - `adapt-hermes`: generate a Hermes-native file view
 - `install-hermes`: install pack skills into a Hermes skills directory
 - `install-hermes-agent`: create one launchable Hermes profile for a pack or role
@@ -226,12 +234,22 @@ Current commands:
 
 See [Runtime Adapters](docs/adapters.md) for what each `--runtime` generates,
 including the threat model and honest guardrail gaps for Claude Code and Codex.
+See [docs/installs.md](docs/installs.md) for the crash-safe convergent install
+model every install path shares, and [docs/spec.md](docs/spec.md) for the
+`UserConfig`/`Site`/`SiteLock` kinds behind the fleet commands.
 
 ## Roadmap
 
+- Authoring/promote flow: draft a skill locally, `aoh skill promote` it into a
+  pack repo.
+- Pack registry, named/ordered, with a lockfile-backed integrity model
+  (`site.lock.yaml` ships in v0.3 phase A; full registry in phase C).
+- Drift: `aoh status` / `sync` / `capture` — compare a workspace against its
+  manifest and the pack's current state.
+- Fleet console: generate (never execute) a provisioning + kubeconfig bundle for
+  operating an entire site in one Claude Code session.
 - Goose adapter: skills, recipes, sub-recipes, extensions.
 - OpenCode adapter.
-- Pack registry and versioning.
 - Eval runner for role/skill validation.
 - Richer runtime requirement negotiation.
 - Policy and approval metadata mapped into runtime-native guardrails.

@@ -130,22 +130,125 @@ is the entire value of the split: the pack author never has to think about stagi
 vs. demo vs. production, and the site-repo owner never has to touch pack internals to
 add an environment.
 
+## From one binding to a fleet: `kind: Site`
+
+Everything above still works standalone — one binding file, one `--binding` flag,
+one workspace. As of v0.3, a **site repo** can go further: a `site.yaml` at its
+root plus a `bindingsDir` of binding files turns that same pack/binding split into
+a fleet inventory that `aoh install --site` fans out across in one command.
+
+```text
+myorg-ops-site/
+  site.yaml
+  site.lock.yaml          # written by `aoh lock`, committed alongside site.yaml
+  bindings/
+    claude-binding.yaml
+    codex-binding.yaml
+```
+
+```yaml title="site.yaml"
+apiVersion: openagentix.io/v1alpha2
+kind: Site
+metadata:
+  name: myorg-ops-site
+spec:
+  bindingsDir: bindings/
+  packs:
+    kubeops:
+      repo: https://github.com/agenticdevops/aoh
+      subdir: collections/core/kubeops
+      ref: main
+```
+
+```yaml title="bindings/claude-binding.yaml"
+apiVersion: openagentix.io/v1alpha2
+kind: Binding
+metadata:
+  name: claude-binding
+spec:
+  role: kubeops-copilot
+  runtime: claude-code
+  access: scoped
+  target:
+    kubeContext: kind-myorg-demo
+    namespace: default
+```
+
+Note the pack source: `{repo, subdir, ref}`, not a local file path — a site pulls
+the pack itself from git, the same way the binding file above points at a role,
+not a copy of the pack's skills.
+
+### Lock, then install
+
+A site's pack sources point at a git ref (`main` above), which is *movable* — the
+site repo owner doesn't control what that branch points to on any given day.
+Before a fan-out install can run, that ref has to be pinned to an actual commit:
+
+```bash
+uv run aoh lock --site myorg-ops-site
+```
+
+This writes `site.lock.yaml` next to `site.yaml`, resolving `kubeops`'s `main` ref
+to whatever commit it currently points to. `aoh install --site` refuses to run
+without a lock that agrees with `site.yaml` — the error names the exact `aoh lock`
+command to fix it. This is deliberate: fan-out means filesystem writes across an
+entire fleet, driven by a git ref someone else controls, so it never resolves that
+ref implicitly at install time. Only the lock does.
+
+```bash
+uv run aoh install --site myorg-ops-site --workspace-root /tmp/fleet
+```
+
+This materializes one workspace per binding — `/tmp/fleet/claude-binding/`,
+`/tmp/fleet/codex-binding/` if a second binding exists — each pinned to the
+lock's `resolvedCommit`, each with its own `aoh-manifest.json`. If the upstream
+`main` branch moves after locking, re-running `aoh install --site` **without**
+updating the lock still installs the *old* pinned commit — proven end to end in
+`tests/test_site_e2e.py`, which pushes a new commit, re-installs, and asserts the
+old commit is still what landed. `aoh lock --site myorg-ops-site --update` is the
+only thing that moves the pin forward.
+
+```bash
+uv run aoh list --site myorg-ops-site --workspace-root /tmp/fleet
+```
+
+`aoh list` prints one row per binding — role, `pack@ref`, runtime, target
+context/namespace, workspace path, and whether it's been provisioned yet — a
+fleet-wide view of what `aoh install --site` produced.
+
+RBAC identities installed this way are **site-qualified**:
+`aoh-myorg-ops-site-claude-binding` rather than the standalone `aoh-claude-binding`
+— so two different sites can each define a binding named `claude-binding` without
+their generated ServiceAccounts colliding on the same cluster.
+
+See [Site Reference](../reference/site) for the full `UserConfig`/`Site`/`SiteLock`
+schema, the three separate precedence chains (target vars / runtime / model), and
+the tri-state workspace-root consent rule that keeps a site repo from silently
+redirecting writes on your machine. See
+[docs/installs.md](https://github.com/agenticdevops/aoh/blob/main/docs/installs.md)
+for what "materializes" actually means under the hood — every install, fan-out or
+single, is crash-safe and convergent (stale files get removed, not just new ones
+added, and an interrupted install always recovers cleanly on the next run).
+
 ## Roadmap note
 
 Bindings today cover any of the three shipped adapters — Hermes, Claude Code, and
 Codex — and the one target shape that's been built out: Kubernetes RBAC-scoped
-kubeconfig materialization. Drift
-detection between a pack and an already-installed profile, and a standalone eval
-runner, are both planned but not implemented; treat any mention of them elsewhere in
+kubeconfig materialization. Full drift detection (`aoh status`/`sync`/`capture`,
+comparing a workspace against its manifest and the pack's current state), a
+registry with named/versioned packs, the authoring/promote flow, and a fleet
+console are all planned but not implemented; treat any mention of them elsewhere in
 these docs as roadmap, not current behavior.
 
 ## Next
 
 You've now seen all three tutorials: building a pack from scratch, enforcing
-read-only access with RBAC, and keeping site-specific targeting out of the pack. From
-here, [Pack Spec](../reference/pack-spec) has the full artifact reference, and
+read-only access with RBAC, and keeping site-specific targeting out of the pack —
+plus, above, how that same split scales from one binding to a fleet. From
+here, [Pack Spec](../reference/pack-spec) has the full artifact reference,
 [Artifact Kinds](../reference/artifact-kinds) documents `Binding` alongside every
-other kind.
+other kind, and [Site Reference](../reference/site) covers `UserConfig`/`Site`/
+`SiteLock` in full.
 
 <Quiz questions={[
   {

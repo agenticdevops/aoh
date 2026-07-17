@@ -48,11 +48,20 @@ Prints `created AOH pack: <target>` on success.
 
 Install an AOH pack for a runtime — `hermes`, `claude-code`, or `codex`, all
 **shipped**. This is the runtime-neutral entrypoint: a thin wrapper around
-`ADAPTERS[<runtime>].materialize(request)`.
+`ADAPTERS[<runtime>].materialize(request)`, wrapped in turn by the crash-safe
+convergent installer (`install_workspace`, see [Site
+Reference](./site) → path safety and
+[`docs/installs.md`](https://github.com/agenticdevops/aoh/blob/main/docs/installs.md)
+for the journal/backup model). `install` has **two mutually exclusive modes**,
+enforced by argparse before any pack is loaded: legacy (below) and site fan-out
+(further down this section).
+
+### Legacy mode: single pack, single runtime
 
 ```bash
 uv run aoh install <pack> --runtime <hermes|claude-code|codex> --output <path> \
-  [--binding <path>] [--role <name>] [--profile <name>] [--model <hint>]
+  [--binding <path>] [--role <name>] [--profile <name>] [--model <hint>] \
+  [--discard-local]
 ```
 
 | Argument | Required | Default |
@@ -60,10 +69,11 @@ uv run aoh install <pack> --runtime <hermes|claude-code|codex> --output <path> \
 | `pack` (positional, path) | yes | — |
 | `--runtime` | yes | choices: `hermes`, `claude-code`, `codex` |
 | `--output` (path) | yes | — |
-| `--binding` (path) | no | `None` |
+| `--binding` (path) | no | `None` — a **file path** in legacy mode |
 | `--role` | no | `None` |
 | `--profile` | no | `None` |
 | `--model` | no | `None` |
+| `--discard-local` | no | `False` — overwrite locally modified owned files instead of refusing to install |
 
 Validates the pack first. If `--binding` is given, it is loaded via
 `load_binding()` and passed straight through to the adapter — the same binding
@@ -77,7 +87,104 @@ adapter emits one for `access: inherit` bindings (no RBAC boundary). See
 [Runtime Adapters](./adapters) for what each runtime generates and the full
 threat model. Note the output-nesting asymmetry: the Hermes adapter writes its
 profile a level deeper, under `--output/<profile>/`, while the Claude Code and
-Codex adapters write their workspace files directly into `--output`.
+Codex adapters write their workspace files directly into `--output`. This
+mode writes `aoh-manifest.json` into the output directory with
+`namingScheme: v1-legacy`. If a previous install's owned files were modified
+locally, the install refuses (`install refused: ...`, exit 1) unless
+`--discard-local` is passed.
+
+### Site mode: fan out across a fleet
+
+```bash
+uv run aoh install --site <dir> \
+  [--group <name>] [--binding <name>] \
+  [--workspace-root <path>] [--accept-site-root] [--discard-local]
+```
+
+| Argument | Required | Default |
+|---|---|---|
+| `--site` (path) | yes (site mode) | — |
+| `--group` | no | `None` — only install bindings in this group |
+| `--binding` | no | `None` — a **binding name** in site mode (not a file path); only install this one binding |
+| `--workspace-root` (path) | no | see the workspace-root consent chain in [Site Reference](./site) |
+| `--accept-site-root` | no | `False` — consent to use the site's advisory `workspaceRoot` |
+| `--discard-local` | no | `False` |
+
+Site mode cannot be combined with a positional `pack`, `--runtime`, or `--output`
+— argparse rejects the combination outright (`install: --site cannot be combined
+with a positional pack, --runtime, or --output`). Requires `site.lock.yaml` to
+exist and agree with `site.yaml`'s pack sources; otherwise it errors and names
+`aoh lock` as the fix. Installs one workspace per matching binding into
+`<effectiveRoot>/<binding-name>/`, each with its own `aoh-manifest.json`
+(`namingScheme: v2-site-qualified` — RBAC identities are named
+`aoh-<site-name>-<binding-name>`). Per-binding failures (a bad pack reference, a
+refused install) are caught, printed (`failed: <binding>: <reason>`), and
+isolated — other bindings still install. Prints a per-binding
+`installed <binding> (<runtime>) -> <path>` line, then a summary line
+(`summary: <N> installed, <M> failed`); exits 1 if any binding failed. See [Site
+Reference](./site) for the full precedence and workspace-root consent model.
+
+## `aoh list`
+
+List the fleet workspaces for a site — manifest facts and credential state only
+(no local hash checking; that's `aoh status`, planned for v0.3 phase D).
+
+```bash
+uv run aoh list [--site <path>] [--workspace-root <path>]
+```
+
+| Argument | Required | Default |
+|---|---|---|
+| `--site` (path) | no | falls back to `UserConfig.site`; errors if neither is set |
+| `--workspace-root` (path) | no | `UserConfig.defaults.workspaceRoot` if set, else `~/agents` |
+
+Prints one row per binding in the site: `BINDING`, `ROLE`, `PACK@REF`, `RUNTIME`,
+`CONTEXT/NS`, `ACCESS`, `WORKSPACE`, `PROVISIONED`, `CREDENTIAL`.
+`PROVISIONED` is `yes` if a `kubeconfig` or `kubeconfig-overlay` file exists in
+the workspace; `CREDENTIAL` reads `aoh-provision.json`'s `tokenExpiresAt` and
+reports `ok`, `expired`, or `-` if no provisioning has happened yet.
+
+## `aoh config`
+
+Manage the user config at `~/.aoh/config.yaml` (or `$AOH_HOME/config.yaml`).
+
+```bash
+uv run aoh config init
+uv run aoh config get <dotted.key>
+uv run aoh config set <dotted.key> <value>
+```
+
+`init` creates a starter file (or ensures `apiVersion`/`kind` are set on an
+existing one) and prints `wrote <path>`. `get` prints the value at a dotted key,
+or `(unset)` if absent. `set` writes a dotted key (creating intermediate maps as
+needed) and prints `set <key> = <value>`. See [Site Reference](./site) for the
+full `UserConfig` field reference.
+
+## `aoh lock`
+
+Resolve every pack referenced by a site to a commit and write/update
+`site.lock.yaml`.
+
+```bash
+uv run aoh lock [--site <path>] [--update [<pack>]] [--yes]
+```
+
+| Argument | Required | Default |
+|---|---|---|
+| `--site` (path) | no | `.` (current directory) |
+| `--update` | no | `None` — no value updates every locked pack; a pack name scopes the update to just that pack |
+| `--yes` | no | `False` — confirm a source/ref change non-interactively |
+
+Without `--update`, `aoh lock` **initializes only**: it writes entries for packs
+that don't have a lock entry yet and never touches an existing one. If
+`site.yaml` and an existing lock entry disagree (source, subdir, or ref changed),
+it reports the disagreement and refuses, naming the `--update` command that would
+resolve it — nothing is silently moved. `--update` re-resolves already-locked
+packs; a plain ref move (e.g. `main` advancing) proceeds and prints the old→new
+commit, but a **source** change (repo/subdir/ref itself) additionally requires
+`--yes`. Prints `wrote <site>/site.lock.yaml` on success. See [Site
+Reference](./site) for the full lock model, including why `aoh install --site`
+always resolves through the lock rather than `site.yaml`'s ref directly.
 
 ## `aoh adapt-hermes`
 

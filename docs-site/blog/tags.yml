@@ -27,3 +27,13 @@ docs:
   label: docs
   description: Documentation itself — what shipped, how it's structured
   permalink: /docs
+
+fleet:
+  label: fleet
+  description: Site inventory, fan-out installs, and operating many workspaces at once
+  permalink: /fleet
+
+ansible:
+  label: ansible
+  description: The Ansible role/inventory analogy and what it does and doesn't map onto
+  permalink: /ansible
