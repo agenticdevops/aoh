@@ -181,3 +181,42 @@ Open questions from v1: answered per review (bindings dir yes with constraints;
 `main` = tracking ref resolved into lock; console context manageable but identity
 risks are the real issue — addressed; hashes = per-skill tree + per-file + dual
 canonical/materialized sets).
+
+## Convergence round (codex round 2: APPROVE-WITH-CHANGES) — final amendments
+
+All accepted and BINDING on the implementation plan (they override any conflicting
+wording above):
+
+- **Site workspaceRoot consent (F1):** site's value is used only when CLI/UserConfig
+  are silent AND the user explicitly accepts (`--accept-site-root` or interactive
+  confirm). Otherwise ignored with a notice.
+- **Crash-safe install, not "atomic swap" (F4):** per-owned-file staged replace on the
+  same filesystem; unowned files preserved untouched; per-workspace lock file; backup
+  rename of replaced files; write-ahead journal + recovery on next run; final hash
+  recheck after swap. Terminology: "crash-safe staged install".
+- **DIVERGED merge ownership (F3):** `aoh status` is strictly read-only. Three-way
+  merge is invoked ONLY by `aoh sync --merge` (result lands in the workspace, becoming
+  MODIFIED/CONVERGED for normal capture flow). Drift tracking covers ALL owned files
+  (skills + generated artifacts), not skills only.
+- **Lock semantics (F6):** fan-out install FAILS if site.lock.yaml is missing or
+  disagrees with site.yaml source/ref/registry ("run `aoh lock` first").
+  `aoh lock --update` prints source/registry identity changes and requires explicit
+  confirmation. Registry index `commit` for tracking refs = advisory snapshot; the
+  LOCK's resolved commit is the authoritative install target.
+- **SA naming (F9, open Q1):** site-qualified names (`aoh-<site>-<binding>`) land in
+  PHASE A, before any fleet exists. Standalone (site-less) bindings keep the legacy
+  `aoh-<binding>` name. Manifest records a naming-scheme version. Docs give manual
+  cleanup steps for superseded RBAC objects; AOH never auto-deletes them.
+- **Console hook hardening (F9):** generated console sets `umask 077`; the guard
+  canonicalizes the `--kubeconfig` value (realpath) before matching against the fleet
+  allowlist; rejects symlinked/relative/missing/duplicated `--kubeconfig` flags and
+  env-only `KUBECONFIG=` selection; accepts both `--kubeconfig path` and
+  `--kubeconfig=path` forms.
+- **VCS metadata (F12):** promote/capture explicitly reject nested `.git` and any VCS
+  metadata directories inside skill trees.
+- **Drift-lite dropped (open Q2):** `aoh list` shows manifest facts + credential state
+  (missing/present/expired) only; no local hash checking. Full drift = Phase D
+  `aoh status`. (`--check-local` may come later.)
+
+Status: FINAL (design). Verdicts: round 1 REWORK → round 2 APPROVE-WITH-CHANGES →
+amendments applied.
