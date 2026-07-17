@@ -184,3 +184,174 @@ def test_bad_sa_name_rejected(tmp_path: Path) -> None:
         assert "must be a DNS-1123 label" in str(exc)
     else:
         raise AssertionError("install should reject non-DNS-1123 binding name")
+
+
+# Task 5: site-qualified RBAC naming tests
+def test_site_qualified_sa_name_renders_correctly(tmp_path: Path) -> None:
+    """Site-qualified mode: SA name is aoh-<site_name>-<binding.name>."""
+    from aoh.adapters._k8s import render_provision_script
+
+    binding = load_binding(write_binding(tmp_path / "binding.yaml"))
+    script = render_provision_script(binding, site_name="sresquad")
+
+    # Both ServiceAccount and ClusterRoleBinding should use the site-qualified name.
+    # SA_NAME is set to the site-qualified name.
+    assert 'SA_NAME=aoh-sresquad-kubeops-sresquad' in script
+    # ClusterRoleBinding uses ${{SA_NAME}} variable, so the literal name won't appear,
+    # but we can verify the variable is used and the SA is referenced.
+    assert 'name: aoh-readonly-${SA_NAME}' in script
+    assert 'name: ${SA_NAME}' in script  # in subjects section
+
+
+def test_legacy_sa_name_renders_correctly(tmp_path: Path) -> None:
+    """Legacy mode (site_name=None): SA name is aoh-<binding.name>."""
+    from aoh.adapters._k8s import render_provision_script
+
+    binding = load_binding(write_binding(tmp_path / "binding.yaml"))
+    script = render_provision_script(binding, site_name=None)
+
+    # Legacy SA name unchanged.
+    assert 'SA_NAME=aoh-kubeops-sresquad' in script
+    # ClusterRoleBinding uses ${SA_NAME} variable for legacy name as well.
+    assert 'name: aoh-readonly-${SA_NAME}' in script
+
+
+def test_legacy_sa_name_renders_by_default(tmp_path: Path) -> None:
+    """Legacy mode is the default when site_name is not specified."""
+    from aoh.adapters._k8s import render_provision_script
+
+    binding = load_binding(write_binding(tmp_path / "binding.yaml"))
+    script = render_provision_script(binding)
+
+    # Default behavior is legacy.
+    assert 'SA_NAME=aoh-kubeops-sresquad' in script
+
+
+def test_site_qualified_name_at_62_chars_valid(tmp_path: Path) -> None:
+    """Boundary test: final SA name of exactly 62 chars should be valid."""
+    from aoh.adapters._k8s import render_provision_script
+
+    # Construct site + binding names to get exactly 62 chars in rendered name.
+    # Format: aoh-<site>-<binding> = 4 + len(site) + 1 + len(binding)
+    # 62 = 4 + len(site) + 1 + len(binding)
+    # len(site) + len(binding) = 57
+    # Use site="ss" (2 chars) and binding="b" * 55 = 57
+    site_name = "ss"
+    path = tmp_path / "binding.yaml"
+    write(
+        path,
+        f"""
+        apiVersion: openagentix.io/v1alpha2
+        kind: Binding
+        metadata:
+          name: {"b" * 55}
+        spec:
+          role: kubeops-copilot
+          target:
+            kubeContext: kind-sresquad-demo
+            namespace: default
+        """,
+    )
+    binding = load_binding(path)
+    script = render_provision_script(binding, site_name=site_name)
+
+    # Should render without error; name should be exactly 62 chars.
+    rendered_name = f"aoh-{site_name}-{binding.name}"
+    assert len(rendered_name) == 62
+    assert f'SA_NAME={rendered_name}' in script
+
+
+def test_site_qualified_name_at_63_chars_valid(tmp_path: Path) -> None:
+    """Boundary test: final SA name of exactly 63 chars should be valid."""
+    from aoh.adapters._k8s import render_provision_script
+
+    # 63 = 4 + len(site) + 1 + len(binding)
+    # len(site) + len(binding) = 58
+    site_name = "sss"
+    path = tmp_path / "binding.yaml"
+    write(
+        path,
+        f"""
+        apiVersion: openagentix.io/v1alpha2
+        kind: Binding
+        metadata:
+          name: {"b" * 55}
+        spec:
+          role: kubeops-copilot
+          target:
+            kubeContext: kind-sresquad-demo
+            namespace: default
+        """,
+    )
+    binding = load_binding(path)
+    script = render_provision_script(binding, site_name=site_name)
+
+    # Should render without error; name should be exactly 63 chars.
+    rendered_name = f"aoh-{site_name}-{binding.name}"
+    assert len(rendered_name) == 63
+    assert f'SA_NAME={rendered_name}' in script
+
+
+def test_site_qualified_name_at_64_chars_rejected(tmp_path: Path) -> None:
+    """Boundary test: final SA name of 64 chars should be rejected."""
+    from aoh.adapters._k8s import render_provision_script
+
+    # 64 = 4 + len(site) + 1 + len(binding)
+    # len(site) + len(binding) = 59
+    site_name = "ssss"
+    path = tmp_path / "binding.yaml"
+    write(
+        path,
+        f"""
+        apiVersion: openagentix.io/v1alpha2
+        kind: Binding
+        metadata:
+          name: {"b" * 55}
+        spec:
+          role: kubeops-copilot
+          target:
+            kubeContext: kind-sresquad-demo
+            namespace: default
+        """,
+    )
+    binding = load_binding(path)
+
+    try:
+        render_provision_script(binding, site_name=site_name)
+    except PackError as exc:
+        # Should be rejected either because it exceeds 63 chars or fails DNS-1123 regex.
+        assert "DNS-1123" in str(exc) or "exceeds" in str(exc).lower()
+    else:
+        raise AssertionError("Should reject SA name longer than 63 chars")
+
+
+def test_invalid_site_name_rejected(tmp_path: Path) -> None:
+    """Invalid site_name (uppercase) should be rejected via safe_segment."""
+    from aoh.adapters._k8s import render_provision_script
+
+    binding = load_binding(write_binding(tmp_path / "binding.yaml"))
+
+    try:
+        render_provision_script(binding, site_name="MyCluster")
+    except PackError as exc:
+        assert "site_name" in str(exc) or "MyCluster" in str(exc)
+    else:
+        raise AssertionError("Should reject uppercase site_name")
+
+
+def test_both_sa_and_crb_use_site_qualified_name(tmp_path: Path) -> None:
+    """Both ServiceAccount and ClusterRoleBinding names should use site-qualified form."""
+    from aoh.adapters._k8s import render_provision_script
+
+    binding = load_binding(write_binding(tmp_path / "binding.yaml"))
+    script = render_provision_script(binding, site_name="mysite")
+
+    # Both should use the site-qualified name via SA_NAME variable.
+    sa_name = "aoh-mysite-kubeops-sresquad"
+
+    assert f"SA_NAME={sa_name}" in script
+    assert f"kind: ClusterRoleBinding" in script
+    # ClusterRoleBinding uses ${SA_NAME} variable which references the site-qualified name.
+    assert "name: aoh-readonly-${SA_NAME}" in script
+    # The ServiceAccount name should be referenced in the subjects section via variable.
+    assert "name: ${SA_NAME}" in script

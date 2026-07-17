@@ -236,6 +236,7 @@ class CodexAdapter:
         pack = request.pack
         binding = request.binding
         role_name = request.role_name
+        site_name = request.options.get("site_name")
 
         if binding is not None:
             if binding.role not in pack.roles:
@@ -324,7 +325,7 @@ class CodexAdapter:
                 diagnostics.append(_INHERIT_DIAGNOSTIC)
             else:
                 provision_file = workspace / "provision.sh"
-                provision_file.write_text(render_provision_script(binding), encoding="utf-8")
+                provision_file.write_text(render_provision_script(binding, site_name=site_name), encoding="utf-8")
                 os.chmod(provision_file, 0o755)
                 generated.append(provision_file)
 

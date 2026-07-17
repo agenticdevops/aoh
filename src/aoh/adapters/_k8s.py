@@ -112,18 +112,51 @@ def validate_binding_fields(binding: Binding) -> None:
         )
 
 
-def render_provision_script(binding: Binding) -> str:
+def render_provision_script(binding: Binding, site_name: str | None = None) -> str:
     """Render the scoped-mode provision script for a binding.
 
     Provisions a read-only ServiceAccount bound to an explicit RBAC allowlist
     (never a `*/*` wildcard), then writes a scoped kubeconfig next to the
     script. Shared across every runtime adapter — the RBAC surface an agent
     gets must not depend on which agent runtime it is running under.
+
+    Args:
+        binding: The Binding to render for.
+        site_name: Optional site name for site-qualified RBAC naming. When
+            provided, the SA name becomes `aoh-<site_name>-<binding.name>`;
+            when None (default), uses legacy naming `aoh-<binding.name>`.
+            site_name is validated as a DNS-1123 label. The final rendered
+            SA name (whichever mode) is validated against full DNS-1123
+            rules and the 63-char limit.
+
+    Raises:
+        PackError: If site_name is invalid or the final SA name violates
+            DNS-1123 rules or exceeds 63 characters.
     """
+    from aoh.paths import safe_segment
 
     context = str(binding.target.get("kubeContext"))
     namespace = str(binding.target.get("namespace", "default"))
-    sa_name = f"aoh-{binding.name}"
+
+    # Validate and construct the SA name.
+    if site_name is not None:
+        safe_segment("site_name", site_name)
+        sa_name = f"aoh-{site_name}-{binding.name}"
+    else:
+        sa_name = f"aoh-{binding.name}"
+
+    # Validate final SA name against DNS-1123 label rule and 63-char limit.
+    if not _DNS_1123_LABEL_RE.fullmatch(sa_name):
+        raise PackError(
+            f"Binding `{binding.name}` rendered ServiceAccount name `{sa_name}` "
+            "must be a DNS-1123 label (lowercase alphanumerics and dashes, "
+            "must start/end alphanumeric)"
+        )
+    if len(sa_name) > 63:
+        raise PackError(
+            f"Binding `{binding.name}` rendered ServiceAccount name `{sa_name}` "
+            f"exceeds 63 characters (got {len(sa_name)})"
+        )
 
     context_q = shlex.quote(context)
     namespace_q = shlex.quote(namespace)
