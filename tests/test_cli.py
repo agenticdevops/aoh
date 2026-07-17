@@ -6,6 +6,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from aoh.cli import main
+from aoh.manifest import NAMING_SCHEME_LEGACY, read_manifest
 from aoh.pack import load_pack, validate_pack
 
 
@@ -309,3 +310,135 @@ def test_install_hermes_agent_prints_hint_to_stderr(tmp_path: Path, capsys) -> N
     assert exit_code == 0
     captured = capsys.readouterr()
     assert "hint: prefer 'aoh install --runtime hermes'" in captured.err
+
+
+def test_install_runtime_writes_manifest_with_legacy_naming_scheme(tmp_path: Path) -> None:
+    import textwrap
+
+    binding_file = tmp_path / "kubeops-sresquad.yaml"
+    binding_file.write_text(
+        textwrap.dedent(
+            """
+            apiVersion: openagentix.io/v1alpha2
+            kind: Binding
+            metadata:
+              name: kubeops-sresquad
+            spec:
+              role: kubeops-copilot
+              target:
+                kubeContext: kind-sresquad-demo
+                namespace: default
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    exit_code = main(
+        [
+            "install",
+            str(PROJECT_ROOT / "collections/core/kubeops"),
+            "--runtime",
+            "claude-code",
+            "--output",
+            str(tmp_path / "workspace"),
+            "--binding",
+            str(binding_file),
+        ]
+    )
+
+    assert exit_code == 0
+    manifest = read_manifest(tmp_path / "workspace")
+    assert manifest is not None
+    assert manifest["namingScheme"] == NAMING_SCHEME_LEGACY
+    assert "aoh-manifest.json" in manifest["ownedFiles"]
+
+
+def test_install_hermes_agent_writes_manifest_with_legacy_naming_scheme(tmp_path: Path) -> None:
+    import textwrap
+
+    binding_file = tmp_path / "kubeops-sresquad.yaml"
+    binding_file.write_text(
+        textwrap.dedent(
+            """
+            apiVersion: openagentix.io/v1alpha2
+            kind: Binding
+            metadata:
+              name: kubeops-sresquad
+            spec:
+              role: kubeops-copilot
+              target:
+                kubeContext: kind-sresquad-demo
+                namespace: default
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    exit_code = main(
+        [
+            "install-hermes-agent",
+            str(PROJECT_ROOT / "collections/core/kubeops"),
+            "--profiles-dir",
+            str(tmp_path / "profiles"),
+            "--profile",
+            "kubeops-sresquad",
+            "--binding",
+            str(binding_file),
+        ]
+    )
+
+    assert exit_code == 0
+    manifest = read_manifest(tmp_path / "profiles" / "kubeops-sresquad")
+    assert manifest is not None
+    assert manifest["namingScheme"] == NAMING_SCHEME_LEGACY
+
+
+def test_install_runtime_refuses_on_local_modification_without_discard_local(
+    tmp_path: Path,
+) -> None:
+    import textwrap
+
+    binding_file = tmp_path / "kubeops-sresquad.yaml"
+    binding_file.write_text(
+        textwrap.dedent(
+            """
+            apiVersion: openagentix.io/v1alpha2
+            kind: Binding
+            metadata:
+              name: kubeops-sresquad
+            spec:
+              role: kubeops-copilot
+              target:
+                kubeContext: kind-sresquad-demo
+                namespace: default
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    workspace = tmp_path / "workspace"
+
+    install_args = [
+        "install",
+        str(PROJECT_ROOT / "collections/core/kubeops"),
+        "--runtime",
+        "claude-code",
+        "--output",
+        str(workspace),
+        "--binding",
+        str(binding_file),
+    ]
+    assert main(install_args) == 0
+
+    # Locally modify an owned file.
+    (workspace / "CLAUDE.md").write_text("locally edited\n", encoding="utf-8")
+
+    exit_code = main(install_args)
+    assert exit_code == 1
+
+    # With --discard-local, the same install proceeds.
+    exit_code = main([*install_args, "--discard-local"])
+    assert exit_code == 0
+    assert (workspace / "CLAUDE.md").read_text() != "locally edited\n"

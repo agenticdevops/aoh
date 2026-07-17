@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 import aoh.adapters
-from aoh.adapters.base import ADAPTERS, MaterializeRequest
+from aoh.adapters.base import ADAPTERS, AdapterResult, MaterializeRequest
 from aoh.adapters.hermes import (
     generate_hermes_adapter,
     install_hermes_agent,
@@ -13,7 +13,47 @@ from aoh.adapters.hermes import (
     install_hermes_team,
 )
 from aoh.authoring import create_pack
+from aoh.installer import InstallRefused, install_workspace
+from aoh.manifest import NAMING_SCHEME_LEGACY
 from aoh.pack import PackError, load_binding, load_pack, validate_pack
+
+
+class _LegacyHermesAgentAdapter:
+    """Adapts the legacy `install_hermes_agent(profiles_dir=..., category=...)`
+    call — which the exact-dir HermesAdapter cannot fully express (it hides
+    `category` behind the default) — into the `RuntimeAdapter` protocol so
+    `install-hermes-agent` can route through `install_workspace` (F2) while
+    keeping `install_hermes_agent`'s own signature/behavior untouched.
+    """
+
+    name = "hermes"
+
+    def __init__(self, *, provider: str, model: str, cwd: str, category: str):
+        self.provider = provider
+        self.model = model
+        self.cwd = cwd
+        self.category = category
+
+    def materialize(self, request: MaterializeRequest) -> AdapterResult:
+        output_dir = Path(request.output_dir)
+        result = install_hermes_agent(
+            request.pack,
+            output_dir.parent,
+            profile_name=output_dir.name,
+            provider=self.provider,
+            model=self.model,
+            cwd=self.cwd,
+            category=self.category,
+            role_name=request.role_name,
+            binding=request.binding,
+        )
+        generated_files = sorted(p for p in output_dir.rglob("*") if p.is_file())
+        return AdapterResult(
+            runtime="hermes",
+            output_dir=output_dir,
+            generated_files=generated_files,
+            diagnostics=result.diagnostics,
+        )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -43,6 +83,11 @@ def main(argv: list[str] | None = None) -> int:
     install.add_argument("--role", help="Role name")
     install.add_argument("--profile", help="Profile name")
     install.add_argument("--model", help="Model hint")
+    install.add_argument(
+        "--discard-local",
+        action="store_true",
+        help="Overwrite locally modified owned files instead of refusing to install",
+    )
 
     hermes = subcommands.add_parser("adapt-hermes", help="Generate a Hermes-native view")
     hermes.add_argument("pack", type=Path)
@@ -115,7 +160,18 @@ def main(argv: list[str] | None = None) -> int:
                 profile=args.profile,
                 model_hint=args.model,
             )
-            result = ADAPTERS[args.runtime].materialize(req)
+            try:
+                result = install_workspace(
+                    adapter=ADAPTERS[args.runtime],
+                    request=req,
+                    source={"repo": None, "subdir": "", "ref": "HEAD"},
+                    commit=None,
+                    naming_scheme=NAMING_SCHEME_LEGACY,
+                    discard_local=args.discard_local,
+                )
+            except InstallRefused as exc:
+                print(f"install refused: {exc}", file=sys.stderr)
+                return 1
             for diagnostic in result.diagnostics:
                 print(f"warning: {diagnostic}", file=sys.stderr)
             print(f"installed {args.runtime} workspace in {result.output_dir}")
@@ -133,17 +189,27 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "install-hermes-agent":
             validate_pack(pack)
             binding = load_binding(args.binding) if args.binding else None
-            result = install_hermes_agent(
-                pack,
-                args.profiles_dir,
-                profile_name=args.profile,
-                provider=args.provider,
-                model=args.model,
-                cwd=args.cwd,
-                category=args.category,
+            output_dir = Path(args.profiles_dir).expanduser() / args.profile
+            req = MaterializeRequest(
+                pack=pack,
+                output_dir=output_dir,
                 role_name=args.role,
                 binding=binding,
             )
+            adapter = _LegacyHermesAgentAdapter(
+                provider=args.provider, model=args.model, cwd=args.cwd, category=args.category
+            )
+            try:
+                result = install_workspace(
+                    adapter=adapter,
+                    request=req,
+                    source={"repo": None, "subdir": "", "ref": "HEAD"},
+                    commit=None,
+                    naming_scheme=NAMING_SCHEME_LEGACY,
+                )
+            except InstallRefused as exc:
+                print(f"install refused: {exc}", file=sys.stderr)
+                return 1
             print(f"installed Hermes agent profile in {result.output_dir}")
             print("hint: prefer 'aoh install --runtime hermes'", file=sys.stderr)
             return 0
