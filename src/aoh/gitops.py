@@ -6,6 +6,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import uuid
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
@@ -286,3 +287,206 @@ def source_checkout(source: PackSource, cache_dir: Path) -> tuple[Path, str]:
                 marker_fh.close()
 
     return export_dir, "git"
+
+
+# ---------------------------------------------------------------------------
+# write primitives (v0.3 Phase B)
+# ---------------------------------------------------------------------------
+
+
+def fetch_default_branch(mirror: Path) -> tuple[str, str]:
+    """Fetch the mirror's remote, return (branch_name, tip_commit_sha) for the
+    repo's default branch. Re-resolves `origin/HEAD` freshly every call (a
+    `--mirror` clone sets it at clone time, but `remote update` does not
+    refresh it), falling back to `main` then `master` if it's stale/absent.
+    Runs under the mirror's existing lock."""
+    lock_path = mirror.parent / (mirror.name + ".lock")
+
+    with _locked(lock_path):
+        _git(["remote", "update", "--prune"], cwd=mirror)
+
+        branch: str | None = None
+        try:
+            _git(["remote", "set-head", "origin", "-a"], cwd=mirror)
+            symref = _git(["symbolic-ref", "refs/remotes/origin/HEAD"], cwd=mirror).strip()
+            # format: refs/remotes/origin/<branch>
+            prefix = "refs/remotes/origin/"
+            if symref.startswith(prefix):
+                branch = symref[len(prefix) :]
+        except GitOpsError:
+            branch = None
+
+        if not branch:
+            for candidate in ("main", "master"):
+                try:
+                    _git(["rev-parse", "--verify", f"refs/heads/{candidate}"], cwd=mirror)
+                    branch = candidate
+                    break
+                except GitOpsError:
+                    continue
+
+        if not branch:
+            raise GitOpsError(
+                "could not determine default branch: origin/HEAD unset and neither "
+                "`main` nor `master` exist"
+            )
+
+        tip_sha = resolve_commit(mirror, branch)
+
+    return branch, tip_sha
+
+
+def create_worktree(mirror: Path, branch: str, worktrees_dir: Path) -> Path:
+    """`git worktree add <fresh-dir> <branch>` cut from `mirror`, into a
+    freshly-created dir under `worktrees_dir` (name includes a uuid — never
+    reused). Returns the worktree path. Caller owns cleanup via
+    `remove_worktree`."""
+    lock_path = mirror.parent / (mirror.name + ".lock")
+
+    worktrees_dir = Path(worktrees_dir)
+    worktrees_dir.mkdir(parents=True, exist_ok=True)
+    worktree = worktrees_dir / f"{branch}-{uuid.uuid4().hex}"
+
+    with _locked(lock_path):
+        _git(["worktree", "add", str(worktree), branch], cwd=mirror)
+
+    return worktree
+
+
+def remove_worktree(mirror: Path, worktree: Path) -> None:
+    """`git worktree remove --force <worktree>` then `git worktree prune`,
+    best-effort (never raises — cleanup-on-error paths must never mask the
+    original error)."""
+    try:
+        _git(["worktree", "remove", "--force", str(worktree)], cwd=mirror)
+    except GitOpsError:
+        pass
+    try:
+        shutil.rmtree(worktree, ignore_errors=True)
+    except OSError:
+        pass
+    try:
+        _git(["worktree", "prune"], cwd=mirror)
+    except GitOpsError:
+        pass
+
+
+def check_identity(worktree: Path) -> None:
+    """Verify `git config user.name` and `user.email` resolve (worktree or
+    global config) — raise GitOpsError naming which is missing, before any
+    commit is attempted."""
+    missing: list[str] = []
+    for key in ("user.name", "user.email"):
+        try:
+            value = _git(["config", "--get", key], cwd=worktree).strip()
+        except GitOpsError:
+            value = ""
+        if not value:
+            missing.append(key)
+
+    if missing:
+        raise GitOpsError(
+            f"git identity not configured: missing {', '.join(missing)} "
+            f"(set via `git config user.name`/`user.email`, worktree or global)"
+        )
+
+
+def commit_all(worktree: Path, message: str) -> str:
+    """`git add -A` + `git commit -m <message>` in the worktree; returns the
+    new commit sha. Raises GitOpsError if there is nothing to commit."""
+    _git(["add", "-A"], cwd=worktree)
+
+    status = _git(["status", "--porcelain"], cwd=worktree)
+    if not status.strip():
+        raise GitOpsError("nothing to commit: worktree has no staged changes")
+
+    _git(["commit", "-m", message], cwd=worktree)
+    sha = _git(["rev-parse", "HEAD"], cwd=worktree).strip()
+    return sha
+
+
+def push_fast_forward(mirror: Path, worktree: Path, branch: str) -> None:
+    """Push `worktree`'s branch to `mirror`'s `origin` remote, fast-forward
+    only (plain `git push origin <branch>`, non-FF-safe by default). On
+    rejection, raise GitOpsError with the real git stderr, distinguishing a
+    non-fast-forward rejection (message contains "non-fast-forward" or
+    "fetch first") from other failures."""
+    try:
+        # The worktree's `origin` remote config is inherited from the
+        # `--mirror` clone (`remote.origin.mirror = true`), which forbids
+        # any explicit refspec on push. Override it for this one push —
+        # the worktree itself is a plain (non-mirror) checkout, we just
+        # want a normal fast-forward-checked push of a single branch.
+        _git(
+            ["-c", "remote.origin.mirror=false", "push", "origin", f"{branch}:{branch}"],
+            cwd=worktree,
+        )
+    except GitOpsError as exc:
+        message = str(exc)
+        lowered = message.lower()
+        if "non-fast-forward" in lowered or "fetch first" in lowered:
+            raise GitOpsError(
+                f"push rejected (non-fast-forward): upstream has moved — {message}"
+            ) from None
+        raise
+
+
+def push_branch(worktree: Path, remote_url: str, local_branch: str, remote_branch: str) -> None:
+    """Push `local_branch` to `remote_url` as `remote_branch` (creates it) —
+    used by the --pr path to push a feature branch DIRECTLY to the real
+    origin (not the mirror). Fails loudly (GitOpsError) on any rejection —
+    no force."""
+    _git(["push", remote_url, f"{local_branch}:{remote_branch}"], cwd=worktree)
+
+
+def set_remote_url(worktree: Path, remote_name: str, url: str) -> None:
+    """`git remote set-url <remote_name> <url>` in the worktree."""
+    _git(["remote", "set-url", remote_name, url], cwd=worktree)
+
+
+def staged_diff(worktree: Path) -> str:
+    """Stage all changes (`git add -A`) then return `git diff --cached`
+    output. Callers that go on to commit should call `commit_all` next,
+    which re-runs `git add -A` (idempotent) before committing."""
+    _git(["add", "-A"], cwd=worktree)
+    return _git(["diff", "--cached"], cwd=worktree)
+
+
+def open_pr(repo_url: str, head_branch: str, base_branch: str, title: str, body: str) -> str:
+    """Open a PR via `gh pr create --repo ... --head ... --base ... --title
+    ... --body ... --json url -q .url`. Wrapped like `_git()` — stderr is
+    captured into GitOpsError, including "gh: command not found" and `gh`
+    auth failures surfaced verbatim."""
+    args = [
+        "gh",
+        "pr",
+        "create",
+        "--repo",
+        repo_url,
+        "--head",
+        head_branch,
+        "--base",
+        base_branch,
+        "--title",
+        title,
+        "--body",
+        body,
+        "--json",
+        "url",
+        "-q",
+        ".url",
+    ]
+    try:
+        result = subprocess.run(
+            args,
+            cwd=None,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        stderr = (exc.stderr or "").strip()
+        raise GitOpsError(f"gh pr create failed: {stderr}") from None
+    except FileNotFoundError as exc:
+        raise GitOpsError(f"gh executable not found: {exc}") from None
+    return result.stdout.strip()

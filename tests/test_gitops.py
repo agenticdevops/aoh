@@ -14,11 +14,21 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from aoh.gitops import (
     GitOpsError,
+    check_identity,
+    commit_all,
+    create_worktree,
     ensure_mirror,
     export_tree,
+    fetch_default_branch,
     mirror_path,
+    open_pr,
+    push_branch,
+    push_fast_forward,
+    remove_worktree,
     resolve_commit,
+    set_remote_url,
     source_checkout,
+    staged_diff,
 )
 from aoh.site import PackSource
 
@@ -599,3 +609,368 @@ def test_source_checkout_git_rejects_symlink(tmp_path: Path) -> None:
     if exports_dir.exists():
         for entry in exports_dir.iterdir():
             assert not (entry / ".complete").exists()
+
+
+# ---------------------------------------------------------------------------
+# fetch_default_branch
+# ---------------------------------------------------------------------------
+
+
+def test_fetch_default_branch_returns_main_and_tip(tmp_path: Path) -> None:
+    bare = make_bare_repo(tmp_path)
+    cache_dir = tmp_path / "cache"
+    mirror = ensure_mirror(cache_dir, bare_repo_url(bare))
+    expected_sha = resolve_commit(mirror, "main")
+
+    branch, tip_sha = fetch_default_branch(mirror)
+
+    assert branch == "main"
+    assert tip_sha == expected_sha
+
+
+def test_fetch_default_branch_refetches_does_not_cache(tmp_path: Path) -> None:
+    bare = make_bare_repo(tmp_path)
+    cache_dir = tmp_path / "cache"
+    mirror = ensure_mirror(cache_dir, bare_repo_url(bare))
+
+    branch1, tip1 = fetch_default_branch(mirror)
+
+    new_sha = commit_extra(bare, tmp_path)
+
+    branch2, tip2 = fetch_default_branch(mirror)
+
+    assert branch1 == branch2 == "main"
+    assert tip1 != tip2
+    assert tip2 == new_sha
+
+
+# ---------------------------------------------------------------------------
+# create_worktree / remove_worktree
+# ---------------------------------------------------------------------------
+
+
+def test_create_worktree_checks_out_branch_in_fresh_dir(tmp_path: Path) -> None:
+    bare = make_bare_repo(tmp_path)
+    cache_dir = tmp_path / "cache"
+    mirror = ensure_mirror(cache_dir, bare_repo_url(bare))
+    worktrees_dir = tmp_path / "worktrees"
+
+    worktree = create_worktree(mirror, "main", worktrees_dir)
+
+    assert worktree.exists()
+    assert worktree.is_relative_to(worktrees_dir)
+    assert (worktree / "collections" / "demo" / "AOH.yaml").exists()
+    branch = _run(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=worktree).stdout.strip()
+    assert branch == "main"
+
+
+def test_create_worktree_two_calls_produce_different_dirs(tmp_path: Path) -> None:
+    bare = make_bare_repo(tmp_path)
+    cache_dir = tmp_path / "cache"
+    mirror = ensure_mirror(cache_dir, bare_repo_url(bare))
+    worktrees_dir = tmp_path / "worktrees"
+
+    worktree1 = create_worktree(mirror, "main", worktrees_dir)
+    remove_worktree(mirror, worktree1)
+    worktree2 = create_worktree(mirror, "main", worktrees_dir)
+
+    assert worktree1 != worktree2
+
+
+def test_remove_worktree_cleans_up(tmp_path: Path) -> None:
+    bare = make_bare_repo(tmp_path)
+    cache_dir = tmp_path / "cache"
+    mirror = ensure_mirror(cache_dir, bare_repo_url(bare))
+    worktrees_dir = tmp_path / "worktrees"
+
+    worktree = create_worktree(mirror, "main", worktrees_dir)
+    remove_worktree(mirror, worktree)
+
+    assert not worktree.exists()
+    listing = _run(["git", "worktree", "list"], cwd=mirror).stdout
+    assert str(worktree) not in listing
+
+
+def test_remove_worktree_never_raises_on_missing_dir(tmp_path: Path) -> None:
+    bare = make_bare_repo(tmp_path)
+    cache_dir = tmp_path / "cache"
+    mirror = ensure_mirror(cache_dir, bare_repo_url(bare))
+    bogus = tmp_path / "worktrees" / "does-not-exist"
+
+    # must not raise
+    remove_worktree(mirror, bogus)
+
+
+# ---------------------------------------------------------------------------
+# check_identity
+# ---------------------------------------------------------------------------
+
+
+def test_check_identity_raises_when_unset(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    bare = make_bare_repo(tmp_path)
+    cache_dir = tmp_path / "cache"
+    mirror = ensure_mirror(cache_dir, bare_repo_url(bare))
+    worktree = create_worktree(mirror, "main", tmp_path / "worktrees")
+
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", "/dev/null")
+    monkeypatch.setenv("GIT_CONFIG_SYSTEM", "/dev/null")
+
+    with pytest.raises(GitOpsError):
+        check_identity(worktree)
+
+
+def test_check_identity_passes_when_set_locally(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    bare = make_bare_repo(tmp_path)
+    cache_dir = tmp_path / "cache"
+    mirror = ensure_mirror(cache_dir, bare_repo_url(bare))
+    worktree = create_worktree(mirror, "main", tmp_path / "worktrees")
+
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", "/dev/null")
+    monkeypatch.setenv("GIT_CONFIG_SYSTEM", "/dev/null")
+    _run(["git", "config", "user.name", "Worktree Test"], cwd=worktree)
+    _run(["git", "config", "user.email", "worktree@example.com"], cwd=worktree)
+
+    check_identity(worktree)  # must not raise
+
+
+# ---------------------------------------------------------------------------
+# commit_all
+# ---------------------------------------------------------------------------
+
+
+def test_commit_all_creates_commit_and_returns_sha(tmp_path: Path) -> None:
+    bare = make_bare_repo(tmp_path)
+    cache_dir = tmp_path / "cache"
+    mirror = ensure_mirror(cache_dir, bare_repo_url(bare))
+    worktree = create_worktree(mirror, "main", tmp_path / "worktrees")
+    _run(["git", "config", "user.name", "Worktree Test"], cwd=worktree)
+    _run(["git", "config", "user.email", "worktree@example.com"], cwd=worktree)
+
+    write(worktree / "new-file.txt", "hello")
+    sha = commit_all(worktree, "add new-file.txt")
+
+    assert len(sha) == 40
+    head = _run(["git", "rev-parse", "HEAD"], cwd=worktree).stdout.strip()
+    assert sha == head
+
+
+def test_commit_all_raises_when_nothing_to_commit(tmp_path: Path) -> None:
+    bare = make_bare_repo(tmp_path)
+    cache_dir = tmp_path / "cache"
+    mirror = ensure_mirror(cache_dir, bare_repo_url(bare))
+    worktree = create_worktree(mirror, "main", tmp_path / "worktrees")
+    _run(["git", "config", "user.name", "Worktree Test"], cwd=worktree)
+    _run(["git", "config", "user.email", "worktree@example.com"], cwd=worktree)
+
+    with pytest.raises(GitOpsError):
+        commit_all(worktree, "nothing changed")
+
+
+# ---------------------------------------------------------------------------
+# push_fast_forward
+# ---------------------------------------------------------------------------
+
+
+def test_push_fast_forward_succeeds(tmp_path: Path) -> None:
+    bare = make_bare_repo(tmp_path)
+    cache_dir = tmp_path / "cache"
+    mirror = ensure_mirror(cache_dir, bare_repo_url(bare))
+    branch, _ = fetch_default_branch(mirror)
+    worktree = create_worktree(mirror, branch, tmp_path / "worktrees")
+    _run(["git", "config", "user.name", "Worktree Test"], cwd=worktree)
+    _run(["git", "config", "user.email", "worktree@example.com"], cwd=worktree)
+
+    write(worktree / "ff-file.txt", "content")
+    sha = commit_all(worktree, "add ff-file.txt")
+
+    push_fast_forward(mirror, worktree, branch)
+
+    mirror_head = _run(["git", "rev-parse", "main"], cwd=mirror).stdout.strip()
+    assert mirror_head == sha
+
+
+def test_push_fast_forward_rejects_when_diverged(tmp_path: Path) -> None:
+    bare = make_bare_repo(tmp_path)
+    cache_dir = tmp_path / "cache"
+    mirror = ensure_mirror(cache_dir, bare_repo_url(bare))
+    branch, _ = fetch_default_branch(mirror)
+    worktree = create_worktree(mirror, branch, tmp_path / "worktrees")
+    _run(["git", "config", "user.name", "Worktree Test"], cwd=worktree)
+    _run(["git", "config", "user.email", "worktree@example.com"], cwd=worktree)
+
+    write(worktree / "local-file.txt", "content")
+    commit_all(worktree, "add local-file.txt")
+
+    # someone else pushes directly to the bare origin, diverging history.
+    # The worktree's local `main` still points at the old tip; the bare
+    # origin itself now rejects a non-fast-forward push — no need to
+    # refresh the mirror's remote-tracking refs first (and doing so would
+    # fail anyway since the mirror's `main` is checked out in this worktree).
+    commit_extra(bare, tmp_path, filename="someone-else.txt")
+
+    with pytest.raises(GitOpsError) as excinfo:
+        push_fast_forward(mirror, worktree, branch)
+
+    message = str(excinfo.value).lower()
+    assert "non-fast-forward" in message or "fetch first" in message
+
+
+# ---------------------------------------------------------------------------
+# push_branch
+# ---------------------------------------------------------------------------
+
+
+def test_push_branch_creates_branch_on_real_origin(tmp_path: Path) -> None:
+    bare = make_bare_repo(tmp_path)
+    cache_dir = tmp_path / "cache"
+    mirror = ensure_mirror(cache_dir, bare_repo_url(bare))
+    branch, _ = fetch_default_branch(mirror)
+    worktree = create_worktree(mirror, branch, tmp_path / "worktrees")
+    _run(["git", "config", "user.name", "Worktree Test"], cwd=worktree)
+    _run(["git", "config", "user.email", "worktree@example.com"], cwd=worktree)
+
+    _run(["git", "checkout", "-b", "feature/new-thing"], cwd=worktree)
+    write(worktree / "feature-file.txt", "content")
+    sha = commit_all(worktree, "add feature-file.txt")
+
+    push_branch(worktree, bare_repo_url(bare), "feature/new-thing", "feature/new-thing")
+
+    remote_sha = _run(["git", "rev-parse", "feature/new-thing"], cwd=bare).stdout.strip()
+    assert remote_sha == sha
+    # main is unaffected
+    mirror_main = _run(["git", "rev-parse", "main"], cwd=mirror).stdout.strip()
+    assert mirror_main != sha
+
+
+def test_push_branch_fails_loudly_on_rejection(tmp_path: Path) -> None:
+    bare = make_bare_repo(tmp_path)
+    cache_dir = tmp_path / "cache"
+    mirror = ensure_mirror(cache_dir, bare_repo_url(bare))
+    branch, _ = fetch_default_branch(mirror)
+    worktree = create_worktree(mirror, branch, tmp_path / "worktrees")
+    _run(["git", "config", "user.name", "Worktree Test"], cwd=worktree)
+    _run(["git", "config", "user.email", "worktree@example.com"], cwd=worktree)
+
+    # push main to main without any new commits but with a bogus remote url
+    with pytest.raises(GitOpsError):
+        push_branch(worktree, "file:///nonexistent/repo.git", "main", "main")
+
+
+# ---------------------------------------------------------------------------
+# set_remote_url
+# ---------------------------------------------------------------------------
+
+
+def test_set_remote_url_repoints_origin(tmp_path: Path) -> None:
+    bare = make_bare_repo(tmp_path)
+    other_bare = make_bare_repo(tmp_path, name="other.git")
+    cache_dir = tmp_path / "cache"
+    mirror = ensure_mirror(cache_dir, bare_repo_url(bare))
+    worktree = create_worktree(mirror, "main", tmp_path / "worktrees")
+
+    set_remote_url(worktree, "origin", bare_repo_url(other_bare))
+
+    url = _run(["git", "remote", "get-url", "origin"], cwd=worktree).stdout.strip()
+    assert url == bare_repo_url(other_bare)
+
+
+# ---------------------------------------------------------------------------
+# staged_diff
+# ---------------------------------------------------------------------------
+
+
+def test_staged_diff_stages_and_returns_diff(tmp_path: Path) -> None:
+    bare = make_bare_repo(tmp_path)
+    cache_dir = tmp_path / "cache"
+    mirror = ensure_mirror(cache_dir, bare_repo_url(bare))
+    worktree = create_worktree(mirror, "main", tmp_path / "worktrees")
+    _run(["git", "config", "user.name", "Worktree Test"], cwd=worktree)
+    _run(["git", "config", "user.email", "worktree@example.com"], cwd=worktree)
+
+    write(worktree / "diffed-file.txt", "brand new content")
+
+    diff = staged_diff(worktree)
+
+    assert "diffed-file.txt" in diff
+    assert "brand new content" in diff
+    # confirms git add -A actually staged it
+    status = _run(["git", "status", "--porcelain"], cwd=worktree).stdout
+    assert status.strip().startswith("A ")
+
+
+def test_staged_diff_empty_when_no_changes(tmp_path: Path) -> None:
+    bare = make_bare_repo(tmp_path)
+    cache_dir = tmp_path / "cache"
+    mirror = ensure_mirror(cache_dir, bare_repo_url(bare))
+    worktree = create_worktree(mirror, "main", tmp_path / "worktrees")
+
+    diff = staged_diff(worktree)
+
+    assert diff == ""
+
+
+# ---------------------------------------------------------------------------
+# open_pr
+# ---------------------------------------------------------------------------
+
+
+def test_open_pr_builds_command_and_returns_url(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import aoh.gitops as gitops_mod
+
+    captured: dict[str, object] = {}
+
+    def fake_run(args, cwd=None, check=True, capture_output=True, text=True):
+        captured["args"] = args
+        return subprocess.CompletedProcess(args, 0, stdout="https://github.com/acme/repo/pull/1\n", stderr="")
+
+    monkeypatch.setattr(gitops_mod.subprocess, "run", fake_run)
+
+    url = open_pr(
+        "https://github.com/acme/repo",
+        "feature/foo",
+        "main",
+        "Add foo",
+        "Body text",
+    )
+
+    assert url == "https://github.com/acme/repo/pull/1"
+    args = captured["args"]
+    assert args[0] == "gh"
+    assert "pr" in args and "create" in args
+    assert "--repo" in args and "https://github.com/acme/repo" in args
+    assert "--head" in args and "feature/foo" in args
+    assert "--base" in args and "main" in args
+    assert "--title" in args and "Add foo" in args
+    assert "--body" in args and "Body text" in args
+    assert "--json" in args and "url" in args
+    assert "-q" in args and ".url" in args
+
+
+def test_open_pr_wraps_command_not_found(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import aoh.gitops as gitops_mod
+
+    def fake_run(args, cwd=None, check=True, capture_output=True, text=True):
+        raise FileNotFoundError("gh: command not found")
+
+    monkeypatch.setattr(gitops_mod.subprocess, "run", fake_run)
+
+    with pytest.raises(GitOpsError) as excinfo:
+        open_pr("https://github.com/acme/repo", "feature/foo", "main", "Add foo", "Body text")
+
+    assert "gh" in str(excinfo.value)
+
+
+def test_open_pr_wraps_stderr_on_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import aoh.gitops as gitops_mod
+
+    def fake_run(args, cwd=None, check=True, capture_output=True, text=True):
+        raise subprocess.CalledProcessError(
+            1, args, output="", stderr="gh auth status: not logged in\n"
+        )
+
+    monkeypatch.setattr(gitops_mod.subprocess, "run", fake_run)
+
+    with pytest.raises(GitOpsError) as excinfo:
+        open_pr("https://github.com/acme/repo", "feature/foo", "main", "Add foo", "Body text")
+
+    assert "not logged in" in str(excinfo.value)
