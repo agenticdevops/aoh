@@ -431,6 +431,13 @@ def push_fast_forward(mirror: Path, worktree: Path, branch: str) -> None:
         raise
 
 
+def create_branch(worktree: Path, branch_name: str) -> None:
+    """`git checkout -b <branch_name>` in the worktree — used by the --pr
+    path to cut a new feature branch before pushing it. Fails loudly
+    (GitOpsError) if the branch already exists or checkout otherwise fails."""
+    _git(["checkout", "-b", branch_name], cwd=worktree)
+
+
 def push_branch(worktree: Path, remote_url: str, local_branch: str, remote_branch: str) -> None:
     """Push `local_branch` to `remote_url` as `remote_branch` (creates it) —
     used by the --pr path to push a feature branch DIRECTLY to the real
