@@ -25,6 +25,8 @@ from aoh.installer import InstallRefused, install_workspace
 from aoh.manifest import NAMING_SCHEME_LEGACY, NAMING_SCHEME_SITE_QUALIFIED, read_manifest
 from aoh.pack import PackError, load_binding, load_pack, validate_pack
 from aoh.paths import safe_join
+from aoh.promote import PromoteError, promote_skill
+from aoh.skillcopy import SkillCopyError
 from aoh.site import (
     LockedPack,
     PackSource,
@@ -448,6 +450,58 @@ def _print_table(columns: list[str], rows: list[list[str]]) -> None:
 
 
 # ---------------------------------------------------------------------------
+# aoh skill promote
+# ---------------------------------------------------------------------------
+
+
+def _cmd_skill_promote(args: argparse.Namespace) -> int:
+    aoh_home = _aoh_home()
+    user_config = load_user_config(aoh_home)
+
+    pack_source = user_config.packs.get(args.pack)
+    if pack_source is None:
+        print(
+            f"invalid AOH pack: no pack named `{args.pack}` configured — "
+            f"run `aoh config set packs.{args.pack} <repo-url>`",
+            file=sys.stderr,
+        )
+        return 1
+
+    if pack_source.local_path is not None:
+        print(
+            f"promote failed: promote requires a git-hosted pack; `{args.pack}` "
+            "is configured as a local path",
+            file=sys.stderr,
+        )
+        return 1
+
+    try:
+        result = promote_skill(
+            name=args.name,
+            from_dir=args.from_dir,
+            pack_source=pack_source,
+            cache_dir=_cache_dir(aoh_home),
+            pr=args.pr,
+            cwd=Path.cwd(),
+        )
+    except (PromoteError, GitOpsError, SkillCopyError) as exc:
+        print(f"promote failed: {exc}", file=sys.stderr)
+        return 1
+
+    if result.staged_diff:
+        print(result.staged_diff)
+
+    if result.status == "committed":
+        print(f"promoted {args.name} to {args.pack} @ {result.sha}")
+    elif result.status == "pr_opened":
+        print(f"opened PR: {result.pr_url}")
+    elif result.status == "noop":
+        print(f"{args.name} already up to date in {args.pack} @ {result.sha} (no-op)")
+
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # aoh config
 # ---------------------------------------------------------------------------
 
@@ -598,6 +652,16 @@ def main(argv: list[str] | None = None) -> int:
     config_set.add_argument("key")
     config_set.add_argument("value")
 
+    skill_cmd = subcommands.add_parser("skill", help="Author/publish AOH skills")
+    skill_sub = skill_cmd.add_subparsers(dest="skill_action", required=True)
+    skill_promote = skill_sub.add_parser(
+        "promote", help="Promote a locally-drafted skill into a git-hosted pack"
+    )
+    skill_promote.add_argument("name")
+    skill_promote.add_argument("--from", dest="from_dir", type=Path, default=None)
+    skill_promote.add_argument("--pack", required=True)
+    skill_promote.add_argument("--pr", action="store_true")
+
     lock_cmd = subcommands.add_parser("lock", help="Resolve and pin site pack refs to commits")
     lock_cmd.add_argument("--site", type=Path, default=Path("."), help="Site root directory")
     lock_cmd.add_argument(
@@ -677,6 +741,9 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.command == "install" and args.site is not None:
             return _cmd_install_site(args)
+
+        if args.command == "skill" and args.skill_action == "promote":
+            return _cmd_skill_promote(args)
 
         pack = load_pack(args.pack)
         if args.command == "validate":
