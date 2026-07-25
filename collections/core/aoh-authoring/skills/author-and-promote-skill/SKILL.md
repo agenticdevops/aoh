@@ -38,6 +38,8 @@ credentials, is the whole mechanism.
 
 3. **Run the promote script.**
 
+   **Prerequisite:** `aoh` must be on PATH. If you're outside this repo's venv, run the promote command directly via `uv run aoh skill promote ...` instead of the wrapper script.
+
    ```
    scripts/promote.sh <skill-name> --pack <pack-name>
    ```
