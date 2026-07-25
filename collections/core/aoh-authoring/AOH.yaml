@@ -1,0 +1,10 @@
+apiVersion: openagentix.io/v1alpha2
+kind: Pack
+metadata:
+  name: aoh-authoring
+  displayName: AOH Authoring
+  description: Skill for drafting a new skill locally and promoting it into a shared AOH pack.
+  owner: OpenAgentix
+  tags:
+    - authoring
+    - meta
