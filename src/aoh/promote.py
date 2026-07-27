@@ -76,25 +76,29 @@ def promote_skill(
     branch, _base_sha = gitops.fetch_default_branch(mirror)
     worktree = gitops.create_worktree(mirror, branch, cache_dir / "worktrees")
 
-    # Repoint the worktree's `origin` to the REAL remote (`pack_source.repo`)
-    # exactly once, immediately after worktree creation. The worktree's
-    # `origin` is inherited from the mirror's `--mirror` clone config, which
-    # points at the real repo URL already but carries `remote.origin.mirror
-    # = true` (forbids explicit refspecs). From this point on, EVERY push
-    # from this worktree (push_fast_forward's `git push origin ...` and the
-    # subsequent push_branch calls) goes to `pack_source.repo` by URL/via
-    # this repointed name — never to the mirror. This is deliberate: it's
-    # what makes push_fast_forward's fast-forward check meaningful (checked
-    # against the real remote's live tip, not a stale mirror), and it means
-    # a later `push_branch(worktree, pack_source.repo, ...)` call always
-    # passes the URL explicitly too, per the hard rule that this worktree
-    # must NEVER push through the remote NAME "origin" once `set_remote_url`
-    # has been called with a value other than the mirror path — passing the
-    # URL explicitly to push_branch is what keeps that safe even though
-    # "origin" already points there.
-    gitops.set_remote_url(worktree, "origin", pack_source.repo)
-
     try:
+        # Repoint the worktree's `origin` to the REAL remote
+        # (`pack_source.repo`) exactly once, immediately after worktree
+        # creation. The worktree's `origin` is inherited from the mirror's
+        # `--mirror` clone config, which points at the real repo URL already
+        # but carries `remote.origin.mirror = true` (forbids explicit
+        # refspecs). From this point on, EVERY push from this worktree
+        # (push_fast_forward's `git push origin ...` on the direct-commit
+        # path, or push_branch's explicit-URL push of a NEW feature branch
+        # on the --pr path) goes to `pack_source.repo` — never to the
+        # mirror. This is deliberate: it's what makes push_fast_forward's
+        # fast-forward check meaningful (checked against the real remote's
+        # live tip, not a stale mirror), and it means push_branch always
+        # passes the URL explicitly too, per the hard rule that this
+        # worktree must NEVER push through the remote NAME "origin" once
+        # `set_remote_url` has been called with a value other than the
+        # mirror path. This call must run INSIDE the try/finally (not
+        # before it) so a failure here (disk-full, permissions, corrupted
+        # worktree git-config) still triggers `remove_worktree` cleanup
+        # below, instead of leaking the worktree dir and its git-worktree
+        # registration.
+        gitops.set_remote_url(worktree, "origin", pack_source.repo)
+
         gitops.check_identity(worktree)
 
         dest = paths.safe_join(worktree, "skills", paths.safe_segment("skill", name))
@@ -138,11 +142,12 @@ def promote_skill(
                     ) from None
                 raise PromoteError(message) from exc
 
-            try:
-                gitops.push_branch(worktree, pack_source.repo, branch, branch)
-            except gitops.GitOpsError as exc:
-                raise PromoteError(str(exc)) from exc
-
+            # No further push here: `push_fast_forward` already pushed
+            # `branch` to `origin`, which `set_remote_url` repointed to the
+            # real `pack_source.repo` — the commit is already on the real
+            # remote. `push_branch` is only needed for the --pr path below,
+            # where it publishes a NEW feature branch that
+            # `push_fast_forward` never touches.
             return PromoteResult(
                 status="committed",
                 sha=sha,

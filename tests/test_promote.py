@@ -404,6 +404,51 @@ def test_promote_skill_worktree_dir_removed_after_success(tmp_path: Path) -> Non
         assert remaining == []
 
 
+def test_promote_skill_set_remote_url_failure_cleans_up_worktree(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """If `gitops.set_remote_url` raises (disk-full, permissions, corrupted
+    worktree git-config are realistic causes), the worktree created just
+    before it must still be cleaned up — no stray `git worktree list` entry,
+    no leftover directory under `cache_dir/worktrees/`."""
+    bare = make_bare_repo(tmp_path)
+    draft = make_draft(tmp_path, name="remote-url-fail-skill")
+    cache_dir = tmp_path / "cache"
+
+    import aoh.promote as promote_mod
+
+    def fake_set_remote_url(worktree, remote_name, url):
+        raise promote_mod.gitops.GitOpsError("boom")
+
+    monkeypatch.setattr(promote_mod.gitops, "set_remote_url", fake_set_remote_url)
+
+    # matches the existing convention for `check_identity` (also called
+    # unwrapped as the first statement inside the try block): a GitOpsError
+    # from a raw gitops call at the top of the try propagates as-is, it is
+    # not wrapped in PromoteError.
+    with pytest.raises(promote_mod.gitops.GitOpsError):
+        promote_skill(
+            name="remote-url-fail-skill",
+            from_dir=draft,
+            pack_source=pack_source_for(bare),
+            cache_dir=cache_dir,
+        )
+
+    # (a) no stray worktree left in `git worktree list`
+    cache_mirror_dirs = list(cache_dir.glob("*.git"))
+    assert cache_mirror_dirs, "expected a mirror dir to exist"
+    mirror = cache_mirror_dirs[0]
+    worktree_listing = _run(["git", "worktree", "list"], cwd=mirror).stdout
+    lines = [line for line in worktree_listing.splitlines() if line.strip()]
+    assert len(lines) == 1
+
+    # (b) the worktree directory itself no longer exists on disk
+    worktrees_dir = cache_dir / "worktrees"
+    if worktrees_dir.exists():
+        remaining = list(worktrees_dir.iterdir())
+        assert remaining == []
+
+
 # ---------------------------------------------------------------------------
 # promote_skill — validation-failure path
 # ---------------------------------------------------------------------------
@@ -491,6 +536,67 @@ def test_promote_skill_noop_on_identical_reprepromote(tmp_path: Path) -> None:
     head_after_second = _run(["git", "rev-parse", "HEAD"], cwd=clone_after_second).stdout.strip()
 
     assert head_after_first == head_after_second
+
+
+def test_promote_skill_update_in_place_on_changed_reprepromote(tmp_path: Path) -> None:
+    """Re-promoting an ALREADY-promoted skill whose local draft content has
+    since CHANGED (not identical) must land a NEW commit with the updated
+    content — not a noop."""
+    bare = make_bare_repo(tmp_path)
+    draft = make_draft(tmp_path, name="updatable-skill")
+
+    cache_dir = tmp_path / "cache"
+
+    first = promote_skill(
+        name="updatable-skill",
+        from_dir=draft,
+        pack_source=pack_source_for(bare),
+        cache_dir=cache_dir,
+    )
+    assert first.status == "committed"
+
+    clone_after_first = fresh_clone(bare, tmp_path, dest_name="_after_first_update")
+    first_body = (clone_after_first / "skills" / "updatable-skill" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+    assert "Draft skill body." in first_body
+    assert "Now with an extra line." not in first_body
+
+    # modify the local draft's SKILL.md content (add a line to the body)
+    skill_md = draft / "SKILL.md"
+    skill_md.write_text(
+        skill_md.read_text(encoding="utf-8") + "\nNow with an extra line.\n",
+        encoding="utf-8",
+    )
+
+    second = promote_skill(
+        name="updatable-skill",
+        from_dir=draft,
+        pack_source=pack_source_for(bare),
+        cache_dir=cache_dir,
+    )
+
+    # not a noop — a real commit landed
+    assert second.status == "committed"
+    assert second.sha is not None
+    assert second.sha != first.sha
+    assert "SKILL.md" in second.staged_diff
+
+    # verify via a FRESH clone that the new content is actually there (not
+    # just a new sha)
+    clone_after_second = fresh_clone(bare, tmp_path, dest_name="_after_second_update")
+    second_body = (clone_after_second / "skills" / "updatable-skill" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+    assert "Now with an extra line." in second_body
+
+    # sanity check the diff/commit only reflects the actual changed content
+    # — the unrelated script file should be untouched
+    log = _run(
+        ["git", "show", "--stat", "--oneline", second.sha], cwd=clone_after_second
+    ).stdout
+    assert "SKILL.md" in log
+    assert "run.sh" not in log
 
 
 # ---------------------------------------------------------------------------
