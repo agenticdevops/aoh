@@ -1,0 +1,223 @@
+---
+title: Authoring & Promoting a Skill
+---
+
+import Quiz from '@site/src/components/Quiz';
+
+# Authoring & Promoting a Skill
+
+Every other tutorial in this section starts from a pack that already exists and
+installs it somewhere. This one runs the loop the other direction: draft a skill
+locally, in whatever session you're already working in, and publish it into a
+shared, git-hosted pack with one command — `aoh skill promote`.
+
+## Why this exists
+
+A pack repo is git — the source of truth the [drift
+model](../concepts/what-is-aoh) is built around. But a skill usually starts life
+somewhere much less formal: a scratch directory in whatever agent session you're
+already in, iterated on until it actually works. `aoh skill promote` is the
+bridge between those two states — draft first, prove it works, publish when
+it's ready — instead of either editing the pack repo directly mid-session or
+hand-copying files and hoping you got the git plumbing right.
+
+## The draft
+
+A skill draft is just a directory with a `SKILL.md`, discoverable the same way
+whether you're working in a Claude Code or Codex session:
+`.claude/skills/<name>/SKILL.md` or `.agents/skills/<name>/SKILL.md`. This
+tutorial's real live-validation run (`docs/demos/promote-validation-2026-07-19.md`)
+drafted a skill called `demo-echo`:
+
+```markdown title="skills/demo-echo/SKILL.md"
+---
+name: demo-echo
+description: Echoes a provided message back to stdout, prefixed with a fixed tag. Demo skill for live promote validation (task 6) — safe to delete.
+---
+
+# Demo Echo
+
+A trivial demo skill used only to live-validate `aoh skill promote` against a
+real GitHub-hosted pack. Runs `scripts/echo.sh <message>` and prints the
+message prefixed with `[demo-echo]`.
+```
+
+```bash title="skills/demo-echo/scripts/echo.sh"
+#!/usr/bin/env bash
+set -euo pipefail
+echo "[demo-echo] ${1:-hello}"
+```
+
+Nothing here is AOH-specific — it's a plain [agentskills](https://github.com/anthropics/skills)
+`SKILL.md` plus a script. That's deliberate: a draft should validate standalone
+before you ever think about promoting it.
+
+## Configure the target pack
+
+`aoh skill promote` publishes into a pack you've already named in
+`~/.aoh/config.yaml` — it needs a git remote, not a local path:
+
+```bash
+uv run aoh config set packs.scratch https://github.com/<org>/<pack-repo>
+```
+
+If `--pack` names something that isn't configured, or that's configured as a
+local path instead of a git remote, `aoh skill promote` refuses before doing
+anything else and tells you exactly what to fix.
+
+## Promote it — direct commit
+
+```bash
+uv run aoh skill promote demo-echo --pack scratch
+```
+
+This is the flow (traced from `src/aoh/promote.py`): ensure a bare mirror of
+the pack repo → fetch its default branch fresh → cut a throwaway worktree from
+that exact commit → copy the draft into `skills/demo-echo/` through a
+hygiene filter → run full pack validation *inside the worktree* → stage
+everything, print the diff → commit → fast-forward push straight to the real
+repo's default branch. The command prints the staged diff before the final
+line:
+
+```
+promoted demo-echo to scratch @ 9b2c42aafb69f32d44763a210dc74a66a9ce5f31
+```
+
+That commit is real — verified afterward directly against GitHub in
+`docs/demos/promote-validation-2026-07-19.md`:
+
+```
+$ gh api repos/<org>/<pack-repo>/commits/9b2c42aafb
+sha: 9b2c42aafb69f32d44763a210dc74a66a9ce5f31
+message: feat(skill): add demo-echo (promoted from local draft)
+author: Gourav Shah <gs@initcron.org>, 2026-07-25T19:30:22Z
+parents: [0d02a2577b2e297a82fccce2e2bc7b8052b1dc5f]
+```
+
+Parent is the pack's previous commit — this landed directly on the default
+branch, not a side branch.
+
+## Promote it again — nothing happens
+
+Re-run the exact same command with nothing changed:
+
+```bash
+uv run aoh skill promote demo-echo --pack scratch
+```
+
+```
+demo-echo already up to date in scratch @ 9b2c42aafb69f32d44763a210dc74a66a9ce5f31 (no-op)
+```
+
+Under the hood, `promote_skill` still does the worktree/copy/validate work,
+then tries to commit — and git itself refuses with "nothing to commit"
+because the copied tree is byte-identical to what's already there.
+`promote_skill` catches that specific failure and reports a no-op instead of
+either erroring or creating an empty commit. No new commit lands — proven in
+the live run by the fact the target repo's `main` branch had exactly the
+commits you'd expect with no extras in between (seed → `demo-echo` →
+the next section's PR-merge commit — no fourth commit anywhere).
+
+## Promote a second skill — as a PR instead
+
+Draft a second skill (`demo-echo-two` in the live run), then promote it with
+`--pr`:
+
+```bash
+uv run aoh skill promote demo-echo-two --pack scratch --pr
+```
+
+This takes a different path: a feature branch `skill/demo-echo-two` is
+created and pushed to the real repo, then `gh pr create` opens a pull
+request. The final line is the PR URL:
+
+```
+opened PR: https://github.com/<org>/<pack-repo>/pull/1
+```
+
+In the live validation, that PR (`#1`) was real and was subsequently merged —
+verified via `gh pr list --state all`, which showed it as `MERGED`, with a
+real `merge_commit_sha` on the default branch afterward.
+
+## What promote refuses to do
+
+Two things are worth internalizing, not just for passing the quiz below:
+
+- **It never guesses about conflicts.** There's no persisted "last known"
+  state for a skill across promote runs. Every promote fetches the pack's
+  default branch fresh and cuts its worktree from that exact tip; the final
+  push only succeeds if the branch is *still* there when the push happens. If
+  someone else promoted (or pushed) in between, the push is rejected as
+  non-fast-forward, and `aoh skill promote` turns that into: `upstream has
+  moved since this promotion started — re-run with --pr`. It never force-pushes
+  and never retries automatically.
+- **It never scans for secrets.** The staged diff is printed before the
+  commit/push happens specifically so a human can look at it. AOH's stated
+  position, verbatim: *"AOH does not intentionally manage secrets — review the
+  staged diff yourself before this proceeds."*
+
+## The agent-facing version
+
+You don't have to remember any of the flags above by hand — that's what
+`collections/core/aoh-authoring`'s `author-and-promote-skill` skill is for. It
+walks an agent through the same five steps (confirm the draft validates,
+identify the pack, run `scripts/promote.sh <name> --pack <pack>` — a thin
+wrapper that just `exec`s `aoh skill promote "$@"` — read the staged diff, and
+report the result) so the loop works the same way whether a human or an agent
+is driving it.
+
+## Next
+
+See [`docs/promote.md`](https://github.com/agenticdevops/aoh/blob/main/docs/promote.md)
+for the full mechanics (worktree lifecycle, hygiene limits, the exact conflict
+model) and [CLI Reference](../reference/cli#aoh-skill-promote) for the complete
+flag table.
+
+<Quiz questions={[
+  {
+    prompt: 'By default (no --pr), what does aoh skill promote do when the push succeeds?',
+    options: [
+      {text: 'Fast-forward pushes the commit straight to the pack repo\'s default branch', correct: true, explanation: 'Direct-commit is the default — a fast-forward-only push to the real repo\'s default branch, no branch or PR involved.'},
+      {text: 'Opens a pull request for a human to merge', correct: false, explanation: 'That is the --pr path, which is opt-in, not the default.'},
+      {text: 'Only stages the diff locally and waits for a second command to push', correct: false, explanation: 'The staged diff is printed for visibility, but the push happens as part of the same promote_skill call — there is no separate confirm-and-push step today.'},
+      {text: 'Merges the skill into the mirror cache only, not the real repo', correct: false, explanation: 'The mirror is only a local cache. Both the direct-commit and --pr paths push to the pack\'s REAL remote, not just the mirror.'},
+    ],
+  },
+  {
+    prompt: 'How does aoh skill promote detect a no-op (re-promoting an unchanged skill)?',
+    options: [
+      {text: 'It catches git\'s own "nothing to commit" after staging, rather than diffing beforehand', correct: true, explanation: 'promote_skill still runs the full worktree/copy/validate sequence, attempts commit_all, and catches the specific "nothing to commit" failure to report status="noop" instead of erroring or duplicating a commit.'},
+      {text: 'It stores a hash of the last-promoted skill tree and compares against it', correct: false, explanation: 'There is no persisted per-skill state at all — that is a deliberate design choice, not an implementation gap.'},
+      {text: 'It asks the user to confirm nothing changed before proceeding', correct: false, explanation: 'No confirmation prompt exists in the shipped flow — the no-op detection is fully automatic.'},
+      {text: 'It refuses to run a second time for the same skill name', correct: false, explanation: 'Re-promoting the same skill is exactly the supported no-op path — it succeeds, it just does nothing new.'},
+    ],
+  },
+  {
+    prompt: 'What happens if someone else promotes (or pushes) to the pack\'s default branch between when your promote starts and when it tries to push?',
+    options: [
+      {text: 'The fast-forward push is rejected, and promote surfaces "upstream has moved since this promotion started — re-run with --pr"', correct: true, explanation: 'This is the whole conflict model: fetch_default_branch is fresh at the start, and the fast-forward push at the end is the actual conflict check. A rejection maps to exactly this message.'},
+      {text: 'It force-pushes over the other change to make sure your promotion lands', correct: false, explanation: 'push_fast_forward is explicitly fast-forward-only — force-pushing is never used anywhere in the promote path.'},
+      {text: 'It silently retries the fetch-worktree-commit sequence until it succeeds', correct: false, explanation: 'There is no automatic retry. The design deliberately surfaces the conflict and tells the operator to re-run with --pr instead.'},
+      {text: 'It merges both changes automatically inside the worktree', correct: false, explanation: 'No merge logic exists in promote_skill — a conflict is treated as a hard stop with a clear message, not something the tool tries to resolve on its own.'},
+    ],
+  },
+  {
+    prompt: 'Which of these does the skillcopy hygiene filter reject before copying a draft into the worktree? (Select all that apply)',
+    multiSelect: true,
+    options: [
+      {text: 'A nested .git directory anywhere in the draft tree', correct: true, explanation: 'copy_skill_tree refuses the whole copy if a directory named .git is found anywhere while walking the source tree.'},
+      {text: 'A symlink anywhere in the draft tree', correct: true, explanation: 'Symlinks (files or directories) are refused outright — the copy never follows or copies them.'},
+      {text: 'A regular file larger than the configured per-file limit (10 MiB)', correct: true, explanation: 'MAX_FILE_BYTES is enforced in the pre-scan pass; an oversized file aborts the whole copy before anything is written.'},
+      {text: 'A file whose contents look like they might be a secret (e.g. an API key pattern)', correct: false, explanation: 'skillcopy performs no content-based secret scanning at all — that is explicitly out of scope. AOH states plainly that it does not intentionally manage secrets; the staged diff is the human review point instead.'},
+    ],
+  },
+  {
+    prompt: 'Why does the aoh-authoring skill invoke aoh skill promote through scripts/promote.sh (a thin wrapper) instead of writing the shell command directly into SKILL.md?',
+    options: [
+      {text: 'To keep the skill declarative and testable (the wrapper\'s mode/executability can be checked) while still never having AOH itself execute anything — the same pattern as any other skill that tells an agent to run a script', correct: true, explanation: 'This settles the engine-neutral question: AOH still never executes; the skill is agent-authored guidance a runtime interprets, and the script wrapper is what makes that guidance deterministic and testable.'},
+      {text: 'Because inline shell commands in SKILL.md are not supported by the agentskills format', correct: false, explanation: 'Nothing in the agentskills format forbids inline shell instructions — plenty of other AOH skills do exactly that (e.g. instructing an agent to run kubectl). The wrapper is a design choice for this particular skill, not a format limitation.'},
+      {text: 'Because promote.sh runs with different permissions than the agent session', correct: false, explanation: 'promote.sh is a plain wrapper script (exec aoh skill promote "$@") — it runs with the same permissions as whatever invokes it, no privilege change involved.'},
+      {text: 'Because this is the ops-<skill> command namespace convention applied to promote', correct: false, explanation: 'The ops-prefixed command namespace is for per-pack skill commands generated by adapters — aoh skill promote is a standing CLI verb, not a pack-specific ops- command, so that convention explicitly does not apply here.'},
+    ],
+  },
+]} />

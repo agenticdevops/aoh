@@ -40,7 +40,7 @@ role⇄skill, collection⇄pack, inventory⇄site, galaxy⇄registry, control no
 | # | Phase | Goal | Status |
 |---|-------|------|--------|
 | A | Foundation | UserConfig + Site inventory, git source resolution (mirror cache), manifest-backed crash-safe convergent installs (all install paths), site-qualified RBAC naming, `aoh install --site` fan-out + `aoh list` + `aoh config` + `aoh lock` (minimal lock) | ✅ done (2026-07-17, SDD, commits `9750a3c`→`3e657df`, 307 tests) |
-| B | Authoring/promote | Draft local, promote central — `collections/core/aoh-authoring` skill pack; `aoh skill promote` (bare-mirror + lock + temp worktree + FF-only git flow, direct-commit default / `--pr` opt-in) | pending |
+| B | Authoring/promote | Draft local, promote central — `collections/core/aoh-authoring` skill pack; `aoh skill promote` (bare-mirror + lock + temp worktree + FF-only git flow, direct-commit default / `--pr` opt-in) | ✅ done (2026-07-27, SDD, commits `be42725`→`494e4cf`, 365 tests) |
 | C | Registry + lock | `aoh-registry` index; named/ordered `registries:` in UserConfig; full `site.lock.yaml` (registry, source, subdir, ref, resolved commit, treeSha256); `aoh lock --update` moves it | pending |
 | D | Drift: status/sync/capture | Five-state compare (CURRENT/BEHIND/MODIFIED/CONVERGED/DIVERGED) per owned file; `aoh status` (read-only); `aoh sync [--merge]`; `aoh capture` (inverse-transform via manifest map, validate, promote) | pending |
 | E | Fleet console | `aoh console --site … --output <dir>` — Claude Code runtime, `access: scoped` bindings only; generates `provision-all.sh`, per-binding kubeconfig slots, fleet skill + kubectl-guard, rendered CLAUDE.md inventory; never executes | pending |

@@ -37,3 +37,8 @@ ansible:
   label: ansible
   description: The Ansible role/inventory analogy and what it does and doesn't map onto
   permalink: /ansible
+
+authoring:
+  label: authoring
+  description: Drafting, validating, and promoting skills into shared packs
+  permalink: /authoring

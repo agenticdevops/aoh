@@ -154,6 +154,13 @@ binding under `<effectiveRoot>/<binding-name>/`, resolving pack sources through
 see `docs/reference/cli.md` (docs-site) for full flag tables and `docs/installs.md`
 for the crash-safe convergent install model every one of these paths shares.
 
+The other direction — local draft into a shared pack — is
+`aoh skill promote <name> [--from <dir>] --pack <name> [--pr]` (v0.3 phase B):
+bare-mirror + per-repo lock + fresh temp worktree cut from a freshly-fetched
+default branch + full pack validation in the worktree, then either a
+fast-forward-only direct commit (default) or a feature branch + `gh pr create`
+(`--pr`). See `docs/promote.md` for the flow, hygiene rules, and conflict model.
+
 ## Org/Project Role Model
 
 AOH models real operational teams:

@@ -186,6 +186,49 @@ commit, but a **source** change (repo/subdir/ref itself) additionally requires
 Reference](./site) for the full lock model, including why `aoh install --site`
 always resolves through the lock rather than `site.yaml`'s ref directly.
 
+## `aoh skill promote`
+
+Promote a locally-drafted skill into a git-hosted pack — the reverse direction
+of `aoh install`: draft locally, publish to a shared pack repo. See
+[`docs/promote.md`](https://github.com/agenticdevops/aoh/blob/main/docs/promote.md)
+for the full flow, hygiene rules, and conflict model.
+
+```bash
+uv run aoh skill promote <name> [--from <dir>] --pack <pack-name> [--pr]
+```
+
+| Argument | Required | Default |
+|---|---|---|
+| `name` (positional) | yes | — |
+| `--from` (path) | no | `None` — search `.claude/skills/<name>` then `.agents/skills/<name>` upward from cwd if omitted |
+| `--pack` | yes | must resolve to a `packs.<name>` entry in `~/.aoh/config.yaml` with a `repo` URL |
+| `--pr` | no | `False` — direct-commit to the pack's default branch is the default; pass `--pr` to open a pull request instead |
+
+`--pack` must name a git-hosted pack — a `local_path`-only entry is rejected
+(`promote failed: promote requires a git-hosted pack; ... is configured as a
+local path`). An unconfigured `--pack` name fails before anything else runs,
+naming the exact fix: `aoh config set packs.<name> <repo-url>`.
+
+Runs, in order: bare-mirror ensure → fresh `fetch_default_branch` → temp
+worktree cut from that tip → git identity check → hygiene-filtered skill copy
+→ full `aoh validate`-equivalent pack validation inside the worktree → stage +
+print the diff → commit → fast-forward push (direct) or feature-branch push +
+`gh pr create` (`--pr`) → worktree removed, always. Prints the staged diff
+(`git diff --cached`) before the final result line:
+
+- direct commit: `promoted <name> to <pack> @ <sha>`
+- `--pr`: `opened PR: <pr_url>`
+- no-op (identical re-promote): `<name> already up to date in <pack> @ <sha>
+  (no-op)`
+
+Any `PromoteError`/`GitOpsError`/`SkillCopyError` — an unconfigured pack, a
+local-path pack, a validation failure in the draft, a copy-hygiene rejection
+(symlink, oversized file, `.git` dir), or an upstream fast-forward rejection —
+prints `promote failed: <reason>` and exits 1. A fast-forward rejection
+specifically means someone else changed the pack's default branch since this
+promote started; the message says so and suggests `--pr` (never auto-retried,
+never force-pushed).
+
 ## `aoh adapt-hermes`
 
 Generate a Hermes-native view of a pack (files only — does not touch

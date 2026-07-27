@@ -7,6 +7,49 @@ versioning: [SemVer](https://semver.org/).
 
 ### Added
 
+- **v0.3 phase B — authoring/promote** (SDD, commits `be42725`→`494e4cf`, 365 tests):
+  - `aoh skill promote <name> [--from DIR] --pack <name> [--pr]`: promotes a
+    locally-drafted skill (found via `.claude/skills/<name>` or
+    `.agents/skills/<name>`, searched upward from cwd, or an explicit `--from`)
+    into a git-hosted pack. Direct-commit is the default (bare-mirror → fresh
+    temp worktree cut from a freshly-fetched default branch → full pack
+    validation in the worktree → commit → fast-forward push to the real repo);
+    `--pr` is opt-in (feature branch `skill/<name>` pushed to the real repo,
+    `gh pr create`). Prints the staged diff (`git diff --cached`) before
+    announcing success. A no-op re-promote (unchanged skill) is detected via
+    git's own "nothing to commit" and reported without a duplicate commit. A
+    non-fast-forward push rejection (someone else promoted in between) surfaces
+    as `PromoteError` with "re-run with --pr" — never auto-retried, never
+    force-pushed.
+  - `src/aoh/gitops.py` write primitives: `fetch_default_branch` (re-resolves
+    `origin/HEAD` fresh every call, falling back to `main`/`master`),
+    `create_worktree`/`remove_worktree`, `check_identity` (fails fast if
+    `user.name`/`user.email` aren't configured), `commit_all`,
+    `push_fast_forward`, `create_branch`, `push_branch` (pushes to the real
+    remote by URL, not the mirror), `set_remote_url`, `staged_diff`, `open_pr`
+    (shells out to `gh pr create`).
+  - `src/aoh/skillcopy.py` (new): hygiene-filtered skill tree copy — rejects
+    `.git` directories, symlinks, devices/sockets/fifos, and oversized files;
+    enforces `MAX_FILE_BYTES` (10 MiB/file), `MAX_TOTAL_BYTES` (50 MiB/skill),
+    `MAX_FILE_COUNT` (500 files) in a single pre-scan pass, so any violation
+    leaves the destination completely untouched (no partial copy).
+  - `src/aoh/promote.py` (new): orchestrates discover → copy-hygiene →
+    worktree → validate → commit/PR, wrapping git and copy-hygiene failures as
+    `PromoteError` (distinct from `PackError`, which stays for genuine pack
+    validation failures).
+  - `collections/core/aoh-authoring` pack: one skill
+    (`author-and-promote-skill`) that walks an agent through confirming a
+    draft validates standalone, identifying the target pack from
+    `~/.aoh/config.yaml`, running `scripts/promote.sh` (a thin
+    `exec aoh skill promote "$@"` wrapper), reading the staged diff before it
+    ships, and reporting the result — states the secrets-honesty contract
+    explicitly ("AOH does not intentionally manage secrets").
+  - Live validation evidence:
+    `docs/demos/promote-validation-2026-07-19.md` — real, private, throwaway
+    GitHub repo (never the real `agenticdevops/aoh`), proving direct-commit
+    promote, no-op re-promote, and a real merged `--pr` PR, including an
+    honestly-recorded `open_pr` bug found during the live run.
+
 - **v0.3 phase A — fleet inventory, lock, convergent installs** (SDD, commits
   `9750a3c`→`3e657df`, 307 tests):
   - `kind: UserConfig` (`~/.aoh/config.yaml`, lazy-loaded — every command still works

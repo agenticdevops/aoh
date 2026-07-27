@@ -28,6 +28,7 @@ const sidebars: SidebarsConfig = {
         'tutorials/kubeops-claude-code',
         'tutorials/kubeops-codex',
         'tutorials/bindings-inventory',
+        'tutorials/authoring-and-promoting',
       ],
     },
     {

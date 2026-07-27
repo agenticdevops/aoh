@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: — Fleet Lifecycle
 status: unknown
-last_updated: "2026-07-17T08:21:39.623Z"
+last_updated: "2026-07-25T19:11:57.787Z"
 ---
 
 # AOH State
@@ -14,10 +14,10 @@ last_updated: "2026-07-17T08:21:39.623Z"
 ## Position
 
 - Milestone: v0.3 (Fleet Lifecycle)
-- Current phase: A (Foundation) — ✅ done
-- Next action: phase B (Authoring/promote) — `collections/core/aoh-authoring` skill
-  pack; `aoh skill promote` (bare-mirror + lock + temp worktree + FF-only git flow,
-  direct-commit default / `--pr` opt-in)
+- Current phase: B (Authoring/promote) — ✅ done
+- Next action: phase C (Registry + lock) — `aoh-registry` index; named/ordered
+  `registries:` in UserConfig; full `site.lock.yaml` (registry, source, subdir, ref,
+  resolved commit, treeSha256); `aoh lock --update` moves it
 
 - v0.2 CLOSED 2026-07-17 (see ROADMAP.md). Docs site LIVE at
   https://agenticdevops.github.io/aoh/ (Pages deploy green 2026-07-16;
@@ -27,13 +27,78 @@ last_updated: "2026-07-17T08:21:39.623Z"
 
 - Remote: https://github.com/agenticdevops/aoh.git (main tracks origin/main)
 - Nested repo inside `experiments/` parent tree (parent gitignores `aoh/`)
-- Test command: `rtk proxy uv run pytest -q` — 307 passing (v0.3 phase A: site
-  inventory, gitops mirror cache, manifest + crash-safe convergent installer,
-  site-qualified RBAC naming, `aoh install --site` fan-out + `list`/`config`/`lock`)
+- Test command: `rtk proxy uv run pytest -q` — 365 passing (v0.3 phase B: gitops
+  write primitives, skillcopy hygiene, promote orchestration, `aoh skill promote`
+  CLI, aoh-authoring pack)
 
 - Validate: `uv run aoh validate <pack>`
 
 ## Session log
+
+### 2026-07-27 — v0.3 phase B shipped: authoring/promote (SDD)
+
+- Executed via SDD (spec-driven development): 6 implementation tasks + this docs
+  task, commits `be42725`→`494e4cf` — `feat: gitops write primitives — fetch,
+  worktree, identity check, FF push, PR` (B1), `feat: skillcopy — hygiene-filtered
+  skill tree copy` (B2), `feat: promote orchestration — worktree-staged validate,
+  commit/PR, fast-forward conflict detection` (B3), `feat: aoh skill promote CLI`
+  (B4), `feat: aoh-authoring pack — draft-then-promote skill` (B5), `docs: live
+  promote validation — scratch repo, direct commit + PR path` (B6)
+
+- New modules: `src/aoh/gitops.py` gained write primitives (`fetch_default_branch`,
+  `create_worktree`/`remove_worktree`, `check_identity`, `commit_all`,
+  `push_fast_forward`, `create_branch`, `push_branch`, `set_remote_url`,
+  `staged_diff`, `open_pr`); `src/aoh/skillcopy.py` (new — hygiene-filtered skill
+  tree copy: rejects `.git`, symlinks, devices/sockets/fifos, oversized files,
+  enforces file-count/total-size caps, single pre-scan pass so a violation leaves
+  nothing written); `src/aoh/promote.py` (new — orchestrates discover → worktree →
+  copy → validate → commit/PR, wraps git/copy errors as `PromoteError`)
+
+- `aoh skill promote <name> [--from DIR] --pack <name> [--pr]` shipped: direct-commit
+  default (fast-forward push to the real pack repo, not just the mirror), `--pr`
+  opt-in (feature branch + `gh pr create`); prints the staged diff before announcing
+  success; no-op re-promote detected via git's own "nothing to commit" rather than a
+  persisted state; a non-fast-forward push rejection is treated as the conflict
+  signal and surfaces "re-run with --pr" — no auto-retry, no force-push
+
+- `collections/core/aoh-authoring` pack shipped: one skill
+  (`author-and-promote-skill`) that walks an agent through validating a draft,
+  finding the target pack, running `scripts/promote.sh` (a thin `exec aoh skill
+  promote "$@"` wrapper — the skill stays declarative, doesn't hardcode shell),
+  reading the staged diff before it ships, and reporting the result
+
+- Live validation (`docs/demos/promote-validation-2026-07-19.md`) against a real,
+  private, throwaway GitHub repo (`initcron/aoh-promote-scratch-*`, never the real
+  `agenticdevops/aoh` repo): direct-commit promote landed a real commit
+  (`9b2c42aafb`), a re-promote produced no new commit (3 total commits on `main`,
+  no room for a 4th), and `--pr` opened a real PR (#1, merged) — also surfaced and
+  documented an `open_pr` bug found during the live `--pr` run (PR merge completed
+  manually after the bug surfaced; recorded honestly rather than papered over)
+
+- Design ambiguity resolved inline (not deferred): "promotion base" for conflict
+  detection is the fresh-fetch tip at the start of each promote, not a persisted
+  cross-session ledger — the fast-forward push itself is the conflict check. YAGNI
+  for a single-operator v1; a persisted multi-skill base ledger is deferred to
+  Phase D if concurrent multi-operator promotion needs it later.
+
+- A real gotcha found via TDD, worth remembering: a worktree cut from a `--mirror`
+  clone inherits an `origin` remote with `remote.origin.mirror = true`, which
+  forbids explicit refspecs on push — every push from such a worktree must
+  either override that config inline (`-c remote.origin.mirror=false`, used by
+  `push_fast_forward` against the mirror) or push by URL (never by remote name)
+  once `set_remote_url` has repointed `origin` at the real repo (used by
+  `push_branch`/the `--pr` path) — pushing by name after repointing is unsafe
+  because the mirror-inherited config still lingers on that remote entry.
+
+- Docs: this task — ROADMAP phase B → done / phase C next, PROJECT.md decision rows
+  (conflict-detection-via-fresh-fetch, skillcopy hygiene limits, the mirror-worktree
+  URL-not-name push gotcha, aoh-authoring's script-wrapper pattern), CHANGELOG
+  [Unreleased] Added, new `docs/promote.md`, docs-site
+  `docs/tutorials/authoring-and-promoting.mdx` (new, quiz) + `docs/reference/cli.md`
+  (`aoh skill promote` section) + field note `blog/2026-07-27-draft-to-promote.md`
+
+- Final suite: 365 passing; all 4 packs validate (docker-disk-cleanup, kubeops,
+  acme-platform-ops, aoh-authoring); docs-site build exit 0
 
 ### 2026-07-17 — v0.3 phase A shipped: fleet inventory, lock, convergent installs (SDD)
 
